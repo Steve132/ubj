@@ -29,7 +29,10 @@ typedef enum
 	MIXED = '*'     //This should not be used to be written to, only to control arrays
 } UBJW_TYPE;
 
-struct ubjw_context_t;
+struct ubjw_context_t;//this should JUST be container. open array makes a copy of the current container...container can be default NULL which has special rules...no dont' do that
+
+//mixed children,no seperator
+
 
 struct ubjw_context_t* ubjw_open_callback(void* userdata,
 		size_t(*write_cb)(const void* data, size_t size, size_t count, void* userdata),

@@ -98,3 +98,74 @@ double read_float_ra(const uint8_t** stdex)
 
 
 
+//*this code is so clever.  Too bad its slow :(
+/*
+static void inline _to_bigendian(uint8_t* outbuffer, uint64_t input, uint8_t num_bytes)
+{
+#if 0 //implementation 1
+	uint8_t* op = outbuffer + num_bytes - 1;//initialize it to the last element
+	for (uint8_t shiftamount = 0; shiftamount < 64; shiftamount += 8)
+	{
+		*op-- = (input >> shiftamount) & 0xFF;
+	}
+#else
+	switch (num_bytes)
+	{
+	case 8:
+		*outbuffer++ = (input >> 56ULL) & 0xFF;
+		*outbuffer++ = (input >> 48ULL) & 0xFF;
+		*outbuffer++ = (input >> 40ULL) & 0xFF;
+		*outbuffer++ = (input >> 32ULL) & 0xFF;
+	case 4:
+		*outbuffer++ = (input >> 24ULL) & 0xFF;
+		*outbuffer++ = (input >> 16ULL) & 0xFF;
+	case 2:
+		*outbuffer++ = (input >> 8ULL) & 0xFF;
+	case 1:
+		*outbuffer++ = (input >> 0ULL) & 0xFF;
+	default:
+		break;
+	};
+#endif
+
+}*/
+
+
+//cases
+
+//a+size+mixed
+//a+size+type+dynamic
+//a+size+type+static   //this is not an API special case...its an implementation special case
+//a+mixed
+
+//o+size+dynamic
+//o+size+type+dynamic
+//o+size+type+static
+//o+dynamic
+
+
+write_buffer(TYPE,SIZE,data*); //a+size+type+static special form for writing a buffer
+	
+//size_tags
+
+
+begin_array(size+mixed)
+	//append anything, tags are necessary
+end_array(endtag=no,error if size tags not written)
+
+begin_array(size+type+dynamic)
+	//append only dynamic type, no tags show up
+end_array(endtag=no,error if size tags not written
+
+begin_array(size+type+static)
+	//append only static type, no tags show up...
+	//no end tag, error if size tags not written
+end_array()
+write_buffer()//special
+
+begin_array(dynamic)
+	//append anything, tags are necessary
+end_array(endtag=yes)
+
+
+	
