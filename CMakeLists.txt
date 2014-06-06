@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 2.8)
+project(ubj)
 
-set(SOURCES ubjson.cpp)
+add_library(ubjw ubjw.c ubjw.h)
+add_library(ubjr ubjr.c ubjr.h)
+add_library(ubjw++ ubjw++.cpp ubjw++.hpp)
+add_executable(ubjwtest ubjw_test.c)
 
-add_executable(ubjtest ubjson_v2.cpp)
-add_executable(ubjwtest ubjw.c ubjw.h)
+target_link_libraries(ubjwtest ubjw)
