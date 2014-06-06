@@ -28,7 +28,7 @@ public:
 
 /*
 enum host_type_t
-{FLOAT,INTEGER,STRING,ARRAY,OBJECT,MIXED};
+{UBJ_FLOAT,UBJ_INTEGER,UBJ_STRING,UBJ_ARRAY,UBJ_OBJECT,UBJ_MIXED};
 
 enum format_type_t//types from the format...including mixed 
 {};

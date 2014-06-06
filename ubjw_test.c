@@ -1,4 +1,4 @@
-#include "ubjw.h"
+#include "ubj.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -6,7 +6,7 @@ static const char* expected_mixed_dynamic_array = "[i\x05Si\x05helloi\x0a]";
 static const size_t expected_mixed_dynamic_array_size = 14;
 void test_mixed_dynamic_array(struct ubjw_context_t* ctx)
 {
-	ubjw_begin_array(ctx, MIXED, 0);
+	ubjw_begin_array(ctx, UBJ_MIXED, 0);
 	ubjw_write_int8(ctx, 5);
 	ubjw_write_string(ctx, "hello");
 	ubjw_write_int8(ctx, 10);
@@ -16,7 +16,7 @@ static const char* expected_mixed_static_array = "[#i\x03i\x05Si\x05helloi\x0a";
 static const size_t expected_mixed_static_array_size = 16;
 void test_mixed_static_array(struct ubjw_context_t* ctx)
 {
-	ubjw_begin_array(ctx, MIXED, 3);
+	ubjw_begin_array(ctx, UBJ_MIXED, 3);
 	ubjw_write_int8(ctx, 5);
 	ubjw_write_string(ctx, "hello");
 	ubjw_write_int8(ctx, 10);
@@ -27,7 +27,7 @@ static const char* expected_mixed_typed_static_array = "[$U#i\x03\xFF\xAA\xDD";
 static const size_t expected_mixed_typed_static_array_size = 9;
 void test_mixed_typed_static_array(struct ubjw_context_t* ctx)
 {
-	ubjw_begin_array(ctx, UINT8, 3);
+	ubjw_begin_array(ctx, UBJ_UINT8, 3);
 	ubjw_write_uint8(ctx, 0xFF);
 	ubjw_write_uint8(ctx, 0xAA);
 	ubjw_write_uint8(ctx, 0xDD);
@@ -37,31 +37,32 @@ void test_mixed_typed_static_array(struct ubjw_context_t* ctx)
 
 /*typedef enum
 {
-NULLTYPE = 'Z',
-NOOP = 'N',
-BOOL_TRUE = 'T',
-BOOL_FALSE = 'F',
+UBJ_NULLTYPE = 'Z',
+UBJ_NOOP = 'N',
+UBJ_BOOL_TRUE = 'T',
+UBJ_BOOL_FALSE = 'F',
 
-STRING = 'S',
-CHAR = 'C',
+UBJ_STRING = 'S',
+UBJ_CHAR = 'C',
 
-INT8 = 'i',
-UINT8 = 'U',
-INT16 = 'I',
-INT32 = 'l',
-INT64 = 'L',
-FLOAT32 = 'd',
-FLOAT64 = 'D',
-HIGH_PRECISION = 'H',
+UBJ_INT8 = 'i',
+UUBJ_INT8 = 'U',
+UBJ_INT16 = 'I',
+UBJ_INT32 = 'l',
+UBJ_INT64 = 'L',
+UBJ_FLOAT32 = 'd',
+UBJ_FLOAT64 = 'D',
+UBJ_HIGH_PRECISION = 'H',
 
-ARRAY = '[',
-OBJECT = '{',
+UBJ_ARRAY = '[',
+UBJ_OBJECT = '{',
 
-MIXED = 0
+UBJ_MIXED = 0
 */
 void printhex(const char* buffer, size_t sz)
 {
-	for (size_t i = 0; i < sz; i++)
+	size_t i;
+	for (i = 0; i < sz; i++)
 	{
 		printf("%X", (unsigned char)buffer[i]);
 	}

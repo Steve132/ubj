@@ -1,7 +1,7 @@
 #ifndef UBJWPP_H
 #define UBJWPP_H
 
-#include"ubjw.h"
+#include"ubjr.h"
 #include<vector>
 
 
