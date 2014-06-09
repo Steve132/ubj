@@ -1,5 +1,5 @@
-#ifndef UBJW_H
-#define UBJW_H
+#ifndef UBJ_H
+#define UBJ_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -87,6 +87,7 @@ typedef struct ubjr_context_t_s ubjr_context_t;
 
 struct ubjr_context_t* ubjr_open_callback(void* userdata,
 	size_t(*read_cb)(void* data, size_t size, size_t count, void* userdata),
+	int(*peek_cb)(void* userdata),
 	int(*close_cb)(void* userdata),
 	void(*error_cb)(const char* error_msg)
 	);
@@ -94,6 +95,15 @@ struct ubjr_context_t* ubjr_open_file(FILE*);
 struct ubjr_context_t* ubjr_open_memory(uint8_t* dst_b, uint8_t* dst_e);
 
 size_t ubjr_close_context(struct ubjr_context_t* ctx);
+
+/*
+typedef struct ubjr_string_t_s
+{
+	const char* data;
+	size_t length;
+} ubjr_string_t;  //HAVE to do this because of the way strings are defined (unicode is valid so null-termination isn't)*/
+
+typedef const char* ubjr_string_t;
 
 typedef struct ubjr_array_t_s
 {
@@ -107,8 +117,8 @@ typedef struct ubjr_object_t_s
 	UBJ_TYPE type;
 	size_t size;
 	void* values;
-	const char** keys;
-	const char** sorted_keys;
+	const ubjr_string_t* keys;
+	const void* sorted_keys;
 } ubjr_object_t;
 
 typedef struct ubjr_dynamic_t_s
@@ -119,17 +129,28 @@ typedef struct ubjr_dynamic_t_s
 		uint8_t boolean;
 		double real;
 		int64_t integer;
-		const char* string;
+		ubjr_string_t string;
 		ubjr_array_t container_array;
 		ubjr_object_t container_object;
 	};
 } ubjr_dynamic_t;
 
 ubjr_dynamic_t ubjr_parse(ubjr_context_t* ctx);
+
 ubjr_dynamic_t ubjr_object_lookup(ubjr_object_t* obj, const char* key);
 
 //output an efficient buffer of types
 ///void ubjr_read_buffer(struct ubjr_context_t* dst, const uint8_t* data, UBJ_TYPE type, size_t count);
+
+
+
+
+
+///////UBJ_RW
+
+ubjrw_write_dynamic_t(ubjw_context_t* ctx, const ubjr_dynamic_t dobj);
+//ubjrw_append_object(ubjw_context_t* ctx, const ubjr_dynamic_t dobj);
+//ubjrw_append_array(ubjw_context_t* ctx, const ubjr_dynamic_t dobj);
 
 #ifdef __cplusplus
 }
