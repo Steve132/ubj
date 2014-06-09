@@ -11,3 +11,5 @@ add_executable(ubjrtest ubjr_test.c)
 
 target_link_libraries(ubjwtest ubjw)
 target_link_libraries(ubjrtest ubjr)
+
+Universal_Utility(A
