@@ -148,7 +148,7 @@ ubjr_dynamic_t ubjr_object_lookup(ubjr_object_t* obj, const char* key);
 
 ///////UBJ_RW
 
-ubjrw_write_dynamic_t(ubjw_context_t* ctx, const ubjr_dynamic_t dobj);
+//ubjrw_write_dynamic_t(ubjw_context_t* ctx, const ubjr_dynamic_t dobj);
 //ubjrw_append_object(ubjw_context_t* ctx, const ubjr_dynamic_t dobj);
 //ubjrw_append_array(ubjw_context_t* ctx, const ubjr_dynamic_t dobj);
 
