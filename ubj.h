@@ -10,6 +10,7 @@ extern "C" {
 
 typedef enum
 {
+	UBJ_MIXED = 0,
 	UBJ_NULLTYPE = 'Z',
 	UBJ_NOOP = 'N',
 	UBJ_BOOL_TRUE = 'T',
@@ -29,8 +30,6 @@ typedef enum
 
 	UBJ_ARRAY = '[',
 	UBJ_OBJECT = '{',
-
-	UBJ_MIXED = 0     //This should not be used to be written to, only to control arrays
 } UBJ_TYPE;
 
 struct ubjw_context_t_s;
@@ -146,11 +145,11 @@ ubjr_dynamic_t ubjr_object_lookup(ubjr_object_t* obj, const char* key);
 
 
 
-///////UBJ_RW
+///////UBJ_RW api
 
-//ubjrw_write_dynamic_t(ubjw_context_t* ctx, const ubjr_dynamic_t dobj);
-//ubjrw_append_object(ubjw_context_t* ctx, const ubjr_dynamic_t dobj);
-//ubjrw_append_array(ubjw_context_t* ctx, const ubjr_dynamic_t dobj);
+ubjrw_write_dynamic_t(ubjw_context_t* ctx, ubjr_dynamic_t dobj);
+ubjrw_append_object(ubjw_context_t* ctx, ubjr_dynamic_t dobj);
+ubjrw_append_array(ubjw_context_t* ctx, ubjr_dynamic_t dobj);
 
 #ifdef __cplusplus
 }

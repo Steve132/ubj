@@ -1,10 +1,5 @@
 #include "ubj.h"
-#include <stdlib.h>
-#include <string.h>
-
-#if _MSC_VER
-#define inline __inline
-#endif
+#include "ubj_internal.h"
 
 #define CONTAINER_IS_SIZED		0x1
 #define CONTAINER_IS_TYPED		0x2
@@ -13,7 +8,6 @@
 
 #define CONTAINER_EXPECTS_KEY	0x10
 
-
 #define CONTAINER_STACK_MAX		64
 #define BUFFER_OUT_SIZE			1024
 
@@ -21,7 +15,7 @@
 struct priv_ubjw_container_t
 {
 	uint8_t flags;
-	uint8_t type;
+	UBJ_TYPE type;
 	size_t elements_remaining;
 };
 
@@ -168,22 +162,6 @@ static inline size_t priv_ubjw_context_write(ubjw_context_t* ctx, const uint8_t*
 	return ctx->write_cb(data, 1, sz, ctx->userdata);
 }
 
-static inline void _to_bigendian16(uint8_t* outbuffer, uint16_t input)
-{
-	*outbuffer++ = (input >> 8); // Get top order byte (guaranteed endian-independent since machine registers)
-	*outbuffer++ = input & 0xFF; // Get bottom order byte
-}
-static inline void _to_bigendian32(uint8_t* outbuffer, uint32_t input)
-{
-	_to_bigendian16(outbuffer, (uint16_t)(input >> 16)); // Get top order 2 bytes
-	_to_bigendian16(outbuffer + 2, (uint16_t)(input & 0xFFFF)); // Get bottom order 2 bytes
-}
-static inline void _to_bigendian64(uint8_t* outbuffer, uint64_t input)
-{
-	_to_bigendian32(outbuffer, (uint32_t)(input >> 32));
-	_to_bigendian32(outbuffer + 4, (uint32_t)(input & 0xFFFFFFFF));
-}
-
 static inline void priv_ubjw_tag_public(ubjw_context_t* ctx, UBJ_TYPE tid)
 {
 	struct priv_ubjw_container_t* ch = ctx->head;
@@ -213,7 +191,7 @@ static inline void priv_ubjw_tag_public(ubjw_context_t* ctx, UBJ_TYPE tid)
 			return;
 		}
 	}
-	priv_ubjw_context_append(ctx, (uint8_t)tid);
+	priv_ubjw_context_append(ctx, UBJI_TYPEC_convert[tid]);
 }
 
 static inline void priv_ubjw_write_raw_string(ubjw_context_t* ctx, const char* out)//TODO: possibly use a safe string
@@ -382,7 +360,7 @@ void priv_ubjw_begin_container(struct priv_ubjw_container_t* cnt, ubjw_context_t
 			//error and return;
 		}
 		priv_ubjw_context_append(ctx, '$');
-		priv_ubjw_context_append(ctx, (uint8_t)typ);
+		priv_ubjw_context_append(ctx, UBJI_TYPEC_convert[typ]);
 		cnt->flags |= CONTAINER_IS_TYPED;
 	}
 	if (count != 0)
@@ -435,82 +413,20 @@ void ubjw_end(ubjw_context_t* ctx)
 	priv_ubjw_context_finish_container(ctx, &ch);
 }
 
-static inline int priv_UBJ_TYPE_size(UBJ_TYPE type)
-{
-	switch (type)
-	{
-	case UBJ_NULLTYPE:
-	case UBJ_NOOP:
-	case UBJ_BOOL_TRUE:
-	case UBJ_BOOL_FALSE:
-		return 0;
-	case UBJ_STRING:
-	case UBJ_HIGH_PRECISION:
-		return sizeof(const char*);
-	case UBJ_CHAR:
-	case UBJ_INT8:
-	case UBJ_UINT8:
-		return 1;
-	case UBJ_INT16:
-		return 2;
-	case UBJ_INT32:
-	case UBJ_FLOAT32:
-		return 4;
-	case UBJ_INT64:
-	case UBJ_FLOAT64:
-		return 8;
-	case UBJ_ARRAY:
-	case UBJ_OBJECT:
-	case UBJ_MIXED:
-		return -1;
-	};
-	return -1;
-}
-
-static inline uint8_t _is_bigendian()
-{
-	int i = 1;
-	char *low = (char*)&i;
-	return *low ? 0 : 1;
-}
-
-#define BUF_BIGENDIAN_LOOP(type,func)						\
-					const type* datamod=(const type*)data;   \
-					size_t i,j;                             \
-					for (i = 0; i < count / bufelems; i++) \
-										{ \
-						for (j = 0; j < bufelems; j++) \
-												{ \
-							size_t d = i*bufelems + j; \
-							func(buf + d*sz, datamod[d]); \
-												} \
-						priv_ubjw_context_write(ctx,buf,BUFFER_OUT_SIZE);  \
-					}\
 
 static inline void priv_ubjw_write_byteswap(ubjw_context_t* ctx, const uint8_t* data, int sz, size_t count)
 {
 	uint8_t buf[BUFFER_OUT_SIZE];
-	size_t bufelems = BUFFER_OUT_SIZE / sz;
-	//TODO: speed this up with an auxilary buffer
-	switch (sz)
-	{
-	case 2:
-	{
-		BUF_BIGENDIAN_LOOP(uint16_t, _to_bigendian16);
-		break;
-	}
-	case 4:
-	{
-		BUF_BIGENDIAN_LOOP(uint32_t, _to_bigendian32);
-		break;
-	}
-	case 8:
-	{
-		BUF_BIGENDIAN_LOOP(uint64_t, _to_bigendian64);
-		break;
-	}
-	};
 
+	size_t i;
+	size_t nbytes = sz*count;
+	for (i = 0; i < nbytes; i+=BUFFER_OUT_SIZE)
+	{
+		size_t npass = min(nbytes - i, BUFFER_OUT_SIZE);
+		memcpy(buf, data + i, npass);
+		buf_endian_swap(buf, sz, npass/sz);
+		priv_ubjw_context_write(ctx, buf, npass);
+	}
 }
 void ubjw_write_buffer(ubjw_context_t* ctx, const uint8_t* data, UBJ_TYPE type, size_t count)
 {

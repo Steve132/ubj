@@ -25,17 +25,18 @@ void ubjw_read_char(ubjw_context_t* dst, char out);
 */
 
 #include "ubj.h"
+#include "ubj_internal.h"
 #include <stdlib.h>
 #include <string.h>
 
 #if _MSC_VER
-#define __inline inline
+#define inline __inline
 #endif
 
 typedef struct ubjr_context_t_s
 {
 	size_t (*read_cb )(void* data, size_t size, size_t count, void* userdata);
-	size_t (*peek_cb )(void* userdata);
+	int (*peek_cb )(void* userdata);
 	int    (*close_cb)(void* userdata);
 	void   (*error_cb)(const char* error_msg);
 
@@ -128,8 +129,8 @@ static inline size_t priv_ubjr_type_localsize(UBJ_TYPE typ)
 	case UBJ_MIXED:
 		return sizeof(ubjr_dynamic_t);
 	};
+	return 0;
 }
-
 
 static inline priv_ubjr_sorted_key_t* priv_ubjr_object_build_sorted_keys(ubjr_object_t* obj)
 {
@@ -141,6 +142,7 @@ static inline priv_ubjr_sorted_key_t* priv_ubjr_object_build_sorted_keys(ubjr_ob
 		sorted_keysmem[i].value = (const uint8_t*)obj->values + i*priv_ubjr_type_localsize(obj->type);
 	}
 	qsort(sorted_keysmem, obj->size, sizeof(priv_ubjr_sorted_key_t), _obj_key_cmp);
+	return sorted_keysmem;
 }
 
 //warning...null-terminated strings are assumed...when this is not necessarily valid. FIXED: we don't use null-terminated strings in the reader (NOT FIXED...string type is awkward)
@@ -149,7 +151,6 @@ static inline ubjr_dynamic_t priv_ubjr_pointer_to_dynamic(UBJ_TYPE typ, const vo
 	ubjr_dynamic_t outdyn;
 	outdyn.type = typ;
 	size_t n = 1;
-	char* tstr;
 	switch (typ)
 	{
 	case UBJ_NULLTYPE:
@@ -204,9 +205,14 @@ static inline ubjr_dynamic_t priv_ubjr_pointer_to_dynamic(UBJ_TYPE typ, const vo
 	return outdyn;
 }
 
-static inline ubjr_dynamic_t priv_ubjr_read_to_ptr(const ubjr_context_t* ctx, uint8_t* dst, UBJ_TYPE typ)
+static inline void priv_ubjr_read_to_ptr(const ubjr_context_t* ctx, uint8_t* dst, UBJ_TYPE typ)
 {
-	
+	size_t sz = priv_UBJ_TYPE_size(typ);
+	if (sz >= 0)
+	{
+
+	}
+
 }
 
 ubjr_dynamic_t ubjr_object_lookup(ubjr_object_t* obj, const char* key)
@@ -226,6 +232,13 @@ ubjr_dynamic_t ubjr_object_lookup(ubjr_object_t* obj, const char* key)
 	const priv_ubjr_sorted_key_t* result_key = (const priv_ubjr_sorted_key_t*)result;
 	return priv_ubjr_pointer_to_dynamic(obj->type,result_key->value);
 }
+
+
+ubjr_dynamic_t ubjr_read_dynamic(ubjr_context_t* ctx)
+{
+
+}
+
 //TODO: This can be reused for object
 static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 {
@@ -270,16 +283,30 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 	{
 		size_t i;
 		myarray.values = malloc(ls*myarray.size+1);
-		//read stuff...if its typed then read raw..if not then just read dynamic..if its typed and static sized then dump buffer
-		for (i = 0; i < myarray.size; i++)//here is where we would just read stuff hyperfast if we could...but only if its typed
+		size_t sz = priv_UBJ_TYPE_size(myarray.type);
+
+		if (myarray.type == UBJ_MIXED)
 		{
-			priv_read_raw_dynamic_mem(ctx, (const uint8_t*)myarray.values + ls*myarray.size, myarray.type);
+			ubjr_dynamic_t* dynarray = myarray.values;
+			for (i = 0; i < myarray.size; i++)
+			{
+				dynarray[i] = ubjr_read_dynamic(ctx);
+			}
 		}
+		else if (sz > 0)
+		{
+			priv_ubjr_context_read(ctx, myarray.values, sz*myarray.size);
+		}
+		else if (sz < 0)
+		{
+			//read arrays strings and objects
+		}
+		//read stuff...if its typed then read raw..if not then just read dynamic..if its typed and static sized then dump buffer
+		//for (i = 0; i < myarray.size; i++)//here is where we would just read stuff hyperfast if we could...but only if its typed
+		//{
+		//	priv_read_raw_dynamic(ctx, (const uint8_t*)myarray.values + ls*myarray.size, myarray.type);
+		//}
 	}
 	return myarray;
 }
 
-ubjr_dynamic_t ubjr_read_dynamic(ubjr_context_t* ctx)
-{
-
-}
