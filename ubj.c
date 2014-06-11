@@ -49,13 +49,22 @@ void ubjrw_write_dynamic_t(ubjw_context_t* ctx, ubjr_dynamic_t dobj)
 		ubjw_write_float64(ctx, dobj.real);
 		break;
 	case UBJ_ARRAY:
-		if (dobj.container_array.type == UBJ_MIXED)
+		if (dobj.container_array.type != UBJ_MIXED && dobj.container_array.type != UBJ_OBJECT && dobj.container_array.type != UBJ_ARRAY)
 		{
-			void ubjw_write_buffer(ubjw_context_t* dst, const uint8_t* data, UBJ_TYPE type, size_t count);
-
+			ubjw_write_buffer(ctx, dobj.container_array.values, dobj.container_array.type, dobj.container_array.size);
 		}
-			UBJ_ARRAY,
-			UBJ_OBJECT,
-	}
+		else
+		{
+			size_t i = 0;
+			ubjw_begin_array(ctx, dobj.container_array.type, dobj.container_array.size);
+			for (i = 0; i < dobj.container_array.size; i++)
+			{
+				ubjw_
+			}
+			ubjw_end(ctx);
+		}
+	case UBJ_OBJECT:
+		break;
+	};
 
 }
