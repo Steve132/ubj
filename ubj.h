@@ -10,26 +10,29 @@ extern "C" {
 
 typedef enum
 {
-	UBJ_MIXED = 0,
-	UBJ_NULLTYPE = 'Z',
-	UBJ_NOOP = 'N',
-	UBJ_BOOL_TRUE = 'T',
-	UBJ_BOOL_FALSE = 'F',
+	UBJ_MIXED=0,			//NOT a type...or the type is mixed
 
-	UBJ_STRING = 'S',
-	UBJ_CHAR = 'C',
+	UBJ_NULLTYPE,
+	UBJ_NOOP,
+	UBJ_BOOL_TRUE,
+	UBJ_BOOL_FALSE,
+	
+	UBJ_CHAR,
+	UBJ_STRING,
+	UBJ_HIGH_PRECISION,
 
-	UBJ_INT8 = 'i',
-	UBJ_UINT8 = 'U',
-	UBJ_INT16 = 'I',
-	UBJ_INT32 = 'l',
-	UBJ_INT64 = 'L',
-	UBJ_FLOAT32 = 'd',
-	UBJ_FLOAT64 = 'D',
-	UBJ_HIGH_PRECISION = 'H',
+	UBJ_INT8,
+	UBJ_UINT8 ,
+	UBJ_INT16,
+	UBJ_INT32,
+	UBJ_INT64,
+	UBJ_FLOAT32 ,
+	UBJ_FLOAT64,
 
-	UBJ_ARRAY = '[',
-	UBJ_OBJECT = '{',
+	UBJ_ARRAY,
+	UBJ_OBJECT,
+
+	UBJ_NUM_TYPES //this is the size of how many types there are (chris' trick)
 } UBJ_TYPE;
 
 struct ubjw_context_t_s;
@@ -147,9 +150,9 @@ ubjr_dynamic_t ubjr_object_lookup(ubjr_object_t* obj, const char* key);
 
 ///////UBJ_RW api
 
-ubjrw_write_dynamic_t(ubjw_context_t* ctx, ubjr_dynamic_t dobj);
-ubjrw_append_object(ubjw_context_t* ctx, ubjr_dynamic_t dobj);
-ubjrw_append_array(ubjw_context_t* ctx, ubjr_dynamic_t dobj);
+void ubjrw_write_dynamic_t(ubjw_context_t* ctx, ubjr_dynamic_t dobj);
+//ubjrw_append_object(ubjw_context_t* ctx, ubjr_dynamic_t dobj);
+//ubjrw_append_array(ubjw_context_t* ctx, ubjr_dynamic_t dobj);
 
 #ifdef __cplusplus
 }

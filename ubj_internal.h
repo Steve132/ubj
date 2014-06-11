@@ -10,97 +10,48 @@
 #endif
 
 
-static const uint8_t UBJI_TYPEC_convert[] = "\x00ZNTFSCiUIlLdDH[{";
+static const uint8_t UBJI_TYPEC_convert[UBJ_NUM_TYPES] = "\x00ZNTFCSHiUIlLdD[{";
 
-static inline int priv_UBJ_TYPE_size(UBJ_TYPE type)
-{
-	static const int UBJI_TYPE_size[] = 
-	{	-1,	
-		0, 
-		0, 
-		0, 
-		0, 
-		sizeof(const char*),
-
-
-		
-		; typedef enum
-	{
-		UBJ_MIXED = 0,
-		UBJ_NULLTYPE = 'Z',
-		UBJ_NOOP = 'N',
-		UBJ_BOOL_TRUE = 'T',
-		UBJ_BOOL_FALSE = 'F',
-
-		UBJ_STRING = 'S',
-		UBJ_CHAR = 'C',
-
-		UBJ_INT8 = 'i',
-		UBJ_UINT8 = 'U',
-		UBJ_INT16 = 'I',
-		UBJ_INT32 = 'l',
-		UBJ_INT64 = 'L',
-		UBJ_FLOAT32 = 'd',
-		UBJ_FLOAT64 = 'D',
-		UBJ_HIGH_PRECISION = 'H',
-
-		UBJ_ARRAY = '[',
-		UBJ_OBJECT = '{',
-	} UBJ_TYPE;
-	switch (type)
-	{
-	case UBJ_NULLTYPE:
-	case UBJ_NOOP:
-	case UBJ_BOOL_TRUE:
-	case UBJ_BOOL_FALSE:
-		return 0;
-	case UBJ_STRING:
-	case UBJ_HIGH_PRECISION:
-		return sizeof(const char*);
-	case UBJ_CHAR:
-	case UBJ_INT8:
-	case UBJ_UINT8:
-		return 1;
-	case UBJ_INT16:
-		return 2;
-	case UBJ_INT32:
-	case UBJ_FLOAT32:
-		return 4;
-	case UBJ_INT64:
-	case UBJ_FLOAT64:
-		return 8;
-	case UBJ_ARRAY:
-	case UBJ_OBJECT:
-	case UBJ_MIXED:
-		return -1;
+static const int UBJI_TYPE_size[UBJ_NUM_TYPES] =
+	{ -1,	 //MIXED
+	0,	 //NULLTYPE
+	0,	 //NOOP
+	0,   //BOOL_TRUE
+	0,   //BOOL_FALSE
+	1,   //CHAR
+	sizeof(const char*), //STRING
+	sizeof(const char*), //high-precision
+	1,					//INT8
+	1,					//UINT8
+	2,					//int16
+	4,					//int32
+	8,					//int64
+	4,					//float32
+	8,					//float64
+	-1,					//array
+	-1					//object
 	};
-	return -1;
-}
 
-
-/*typedef enum
+static const size_t UBJR_TYPE_localsize[UBJ_NUM_TYPES] =
 {
-	UBJ_MIXED = 0,
-	UBJ_NULLTYPE = 'Z',
-	UBJ_NOOP = 'N',
-	UBJ_BOOL_TRUE = 'T',
-	UBJ_BOOL_FALSE = 'F',
-
-	UBJ_STRING = 'S',
-	UBJ_CHAR = 'C',
-
-	UBJ_INT8 = 'i',
-	UBJ_UINT8 = 'U',
-	UBJ_INT16 = 'I',
-	UBJ_INT32 = 'l',
-	UBJ_INT64 = 'L',
-	UBJ_FLOAT32 = 'd',
-	UBJ_FLOAT64 = 'D',
-	UBJ_HIGH_PRECISION = 'H',
-
-	UBJ_ARRAY = '[',
-	UBJ_OBJECT = '{',
-} UBJ_TYPEc;*/
+	sizeof(ubjr_dynamic_t),	 //MIXED
+	0,	 //NULLTYPE
+	0,	 //NOOP
+	0,   //BOOL_TRUE
+	0,   //BOOL_FALSE
+	sizeof(ubjr_string_t),   //CHAR
+	sizeof(ubjr_string_t), //STRING
+	sizeof(ubjr_string_t), //high-precision
+	sizeof(int8_t),					//INT8
+	sizeof(uint8_t),					//UINT8
+	sizeof(int16_t),					//int16
+	sizeof(int32_t),					//int32
+	sizeof(int64_t),					//int64
+	sizeof(float),					//float32
+	sizeof(double),					//float64
+	sizeof(ubjr_array_t),					//array
+	sizeof(ubjr_object_t)					//object
+};
 
 static inline void _to_bigendian16(uint8_t* outbuffer, uint16_t input)
 {
@@ -140,6 +91,9 @@ static inline void buf_endian_swap(uint8_t* buf, size_t sz, size_t n)
 	{
 		switch (sz)
 		{
+		case 1:
+		case 0:
+			break;
 		case 2:
 			BUF_BIG_ENDIAN_SWAP(uint16_t, _to_bigendian16,buf,n);
 			break;

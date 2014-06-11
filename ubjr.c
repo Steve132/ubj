@@ -95,42 +95,15 @@ static int _obj_key_cmp(const void* av, const void* bv)
 	return strcmp(a->key,b->key);
 }
 
-static inline size_t priv_ubjr_type_localsize(UBJ_TYPE typ)
+
+
+static inline UBJ_TYPE priv_ubjr_type_from_char(uint8_t c)
 {
-	switch (typ)
-	{
-	case UBJ_NULLTYPE:
-	case UBJ_NOOP:
-	case UBJ_BOOL_TRUE:
-	case UBJ_BOOL_FALSE:
-		return 0;
-	case UBJ_HIGH_PRECISION:
-	case UBJ_STRING:
-	case UBJ_CHAR:
-		return sizeof(ubjr_string_t);
-	case UBJ_INT8:
-		return sizeof(int8_t);
-	case UBJ_UINT8:
-		return sizeof(uint8_t);
-	case UBJ_INT16:
-		return sizeof(int16_t);
-	case UBJ_INT32:
-		return sizeof(int32_t);
-	case UBJ_INT64:
-		return sizeof(int64_t);
-	case UBJ_FLOAT32:
-		return sizeof(float); 
-	case UBJ_FLOAT64:
-		return sizeof(double);
-	case UBJ_ARRAY:
-		return sizeof(ubjr_array_t);
-	case UBJ_OBJECT:
-		return sizeof(ubjr_object_t);
-	case UBJ_MIXED:
-		return sizeof(ubjr_dynamic_t);
-	};
-	return 0;
+	int i = 0;								//TODO: Benchmark this and see if it should be a switch statement where the compiler implements fastest switch e.g. binary search (17 cases might be binary search fast)
+	for (i = 0; i < UBJ_NUM_TYPES && UBJI_TYPEC_convert[i] != c; i++);
+	return (UBJ_TYPE)i;
 }
+
 
 static inline priv_ubjr_sorted_key_t* priv_ubjr_object_build_sorted_keys(ubjr_object_t* obj)
 {
@@ -139,11 +112,13 @@ static inline priv_ubjr_sorted_key_t* priv_ubjr_object_build_sorted_keys(ubjr_ob
 	for (i = 0; i < obj->size; i++)
 	{
 		sorted_keysmem[i].key = obj->keys[i];
-		sorted_keysmem[i].value = (const uint8_t*)obj->values + i*priv_ubjr_type_localsize(obj->type);
+		sorted_keysmem[i].value = (const uint8_t*)obj->values + i*UBJR_TYPE_localsize[obj->type];
 	}
 	qsort(sorted_keysmem, obj->size, sizeof(priv_ubjr_sorted_key_t), _obj_key_cmp);
 	return sorted_keysmem;
 }
+
+
 
 //warning...null-terminated strings are assumed...when this is not necessarily valid. FIXED: we don't use null-terminated strings in the reader (NOT FIXED...string type is awkward)
 static inline ubjr_dynamic_t priv_ubjr_pointer_to_dynamic(UBJ_TYPE typ, const void* dat)
@@ -161,17 +136,9 @@ static inline ubjr_dynamic_t priv_ubjr_pointer_to_dynamic(UBJ_TYPE typ, const vo
 		outdyn.boolean = (typ == UBJ_BOOL_TRUE ? 1 : 0);
 		break;
 	case UBJ_HIGH_PRECISION:
-		//warn here that high-precision strings are not correctly supported as ints (string)
 	case UBJ_STRING:
-		n = strlen(dat);
-	case UBJ_CHAR:
-	{
-		char* tstr = malloc(n+1);
-		memcpy(tstr, dat, n);
-		tstr[n] = 0; //make sure the new string is null-terminated
-		outdyn.string = tstr;
-		break;
-	}
+	case UBJ_CHAR://possibly if char allocate, otherwise don't
+		outdyn.string = *(const ubjr_string_t*)dat;
 	case UBJ_INT8:
 		outdyn.integer = *(const int8_t*)dat;
 		break;
@@ -205,14 +172,81 @@ static inline ubjr_dynamic_t priv_ubjr_pointer_to_dynamic(UBJ_TYPE typ, const vo
 	return outdyn;
 }
 
+static inline uint8_t priv_ubjr_read_1b(ubjr_context_t* ctx)
+{
+	return priv_ubjr_context_getc(ctx);
+}
+static inline uint16_t priv_ubjr_read_2b(ubjr_context_t* ctx)
+{
+	return (uint16_t)priv_ubjr_read_1b(ctx) << 8 | priv_ubjr_read_1b(ctx);
+}
+static inline uint32_t priv_ubjr_read_4b(ubjr_context_t* ctx)
+{
+	return (uint32_t)priv_ubjr_read_2b(ctx) << 16 | priv_ubjr_read_2b(ctx);
+}
+static inline uint32_t priv_ubjr_read_8b(ubjr_context_t* ctx)
+{
+	return (uint64_t)priv_ubjr_read_4b(ctx) << 32ULL | priv_ubjr_read_4b(ctx);
+}
+
 static inline void priv_ubjr_read_to_ptr(const ubjr_context_t* ctx, uint8_t* dst, UBJ_TYPE typ)
 {
-	size_t sz = priv_UBJ_TYPE_size(typ);
-	if (sz >= 0)
+	int64_t n = 1;
+	char *tstr;
+	switch (typ)
 	{
-
+	case UBJ_MIXED:
+	{
+		*(ubjr_dynamic_t*)dst = ubjr_read_dynamic(ctx);
+		break;
 	}
-
+	case UBJ_STRING:
+	case UBJ_HIGH_PRECISION:
+	{
+		n = ubjw_read_integer(ctx);
+	}
+	case UBJ_CHAR:
+	{
+		tstr = malloc(n + 1);
+		priv_ubjr_context_read(ctx, tstr, n);
+		tstr[n] = 0;
+		*(ubjr_string_t*)dst = tstr;
+		break;
+	}
+	case UBJ_INT8:
+	case UBJ_UINT8:
+	{
+		*dst = priv_ubjr_read_1b(ctx);
+		break;
+	}
+	case UBJ_INT16:
+	{
+		*(uint16_t*)dst = priv_ubjr_read_2b(ctx);
+		break;
+	}
+	case UBJ_INT32:
+	case UBJ_FLOAT32:
+	{
+		*(uint32_t*)dst = priv_ubjr_read_4b(ctx);
+		break;
+	}
+	case UBJ_INT64:
+	case UBJ_FLOAT64:
+	{
+		*(uint64_t*)dst = priv_ubjr_read_8b(ctx);
+		break;
+	}
+	case UBJ_ARRAY:
+	{
+		*(ubjr_array_t*)dst = priv_ubjr_read_raw_array(ctx);
+		break;
+	}
+	case UBJ_OBJECT:
+	{
+		*(ubjr_array_t*)dst = priv_ubjr_read_raw_array(ctx);
+		break;
+	}
+	};
 }
 
 ubjr_dynamic_t ubjr_object_lookup(ubjr_object_t* obj, const char* key)
@@ -234,37 +268,54 @@ ubjr_dynamic_t ubjr_object_lookup(ubjr_object_t* obj, const char* key)
 }
 
 
+
+
+/*uint16_t ubjr_read_raw_uint16_t(ubjr_context_t* ctx)
+{
+	uint16_t r = (uint8_t)ubjr_read_raw_uint8_t(ctx) << 8 | (uint8_t)ubjr_read_raw_uint8_t(ctx);
+	return 
+}*/
+
 ubjr_dynamic_t ubjr_read_dynamic(ubjr_context_t* ctx)
 {
-
+	ubjr_dynamic_t scratch; //scratch memory
+	UBJ_TYPE newtyp = priv_ubjr_type_from_char(priv_ubjr_context_getc(ctx));
+	priv_ubjr_read_to_ptr(ctx, &scratch, newtyp);
+	return priv_ubjr_pointer_to_dynamic(newtyp, &scratch);
 }
 
-//TODO: This can be reused for object
-static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
+static inline void priv_read_container_params(ubjr_context_t* ctx, UBJ_TYPE* typout, size_t* sizeout)
 {
-	ubjr_array_t myarray;
 	int nextchar = priv_ubjr_context_peek(ctx);
 	if (nextchar == '$')
 	{
 		priv_ubjr_context_getc(ctx);
-		myarray.type = priv_ubjr_context_getc(ctx);
+		*typout = priv_ubjr_type_from_char(priv_ubjr_context_getc(ctx));
 		nextchar = priv_ubjr_context_peek(ctx);
 	}
 	else
 	{
-		myarray.type = UBJ_MIXED;
+		*typout = UBJ_MIXED;
 	}
 
 	if (nextchar == '#')
 	{
-		myarray.size = ubjw_read_integer(ctx);
+		*sizeout = ubjw_read_integer(ctx);
 	}
 	else
 	{
-		myarray.size = 0;
+		*sizeout = 0;
 	}
+}
 
-	size_t ls = priv_ubjr_type_localsize(myarray.type);
+//TODO: This can be reused for object
+
+static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
+{
+	ubjr_array_t myarray;
+	priv_read_container_params(ctx,&myarray.type,&myarray.size);
+
+	size_t ls = UBJR_TYPE_localsize[myarray.type];
 	if (myarray.size == 0)
 	{
 		size_t arrpot = 0;
@@ -273,40 +324,68 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 		{
 			if (myarray.size >= (1ULL << arrpot))
 			{
-				arrpot <<= 1;
+				arrpot ++;
 				myarray.values = realloc(myarray.values, (1ULL << arrpot)*ls+1);
 			}
-			priv_read_raw_dynamic_mem(ctx,(const uint8_t*)myarray.values + ls*myarray.size,myarray.type);
+			priv_read_to_ptr(ctx,(const uint8_t*)myarray.values + ls*myarray.size,myarray.type);
 		}
 	}
 	else
 	{
 		size_t i;
 		myarray.values = malloc(ls*myarray.size+1);
-		size_t sz = priv_UBJ_TYPE_size(myarray.type);
+		size_t sz = UBJI_TYPE_size[myarray.type];
 
-		if (myarray.type == UBJ_MIXED)
-		{
-			ubjr_dynamic_t* dynarray = myarray.values;
-			for (i = 0; i < myarray.size; i++)
-			{
-				dynarray[i] = ubjr_read_dynamic(ctx);
-			}
-		}
-		else if (sz > 0)
+		if (sz >= 0 && myarray.type != UBJ_STRING && myarray.type != UBJ_HIGH_PRECISION && myarray.type != UBJ_CHAR) //constant size,fastread
 		{
 			priv_ubjr_context_read(ctx, myarray.values, sz*myarray.size);
+			buf_endian_swap(myarray.values, sz, myarray.size); //do nothing for 0-sized buffers
 		}
-		else if (sz < 0)
+		else
 		{
-			//read arrays strings and objects
+			for (i = 0; i < myarray.size; i++)
+			{
+				priv_ubjr_read_to_ptr(ctx, (uint8_t*)myarray.values + ls*i, myarray.type);
+			}
 		}
-		//read stuff...if its typed then read raw..if not then just read dynamic..if its typed and static sized then dump buffer
-		//for (i = 0; i < myarray.size; i++)//here is where we would just read stuff hyperfast if we could...but only if its typed
-		//{
-		//	priv_read_raw_dynamic(ctx, (const uint8_t*)myarray.values + ls*myarray.size, myarray.type);
-		//}
 	}
 	return myarray;
 }
 
+static inline ubjr_object_t priv_ubjr_read_raw_object(ubjr_context_t* ctx)
+{
+	ubjr_object_t myobject;
+	priv_read_container_params(ctx, &myobject.type, myobject.size);
+
+	size_t ls = UBJR_TYPE_localsize[myobject.type];
+	if (myobject.size == 0)
+	{
+		size_t arrpot = 0;
+		myobject.values = malloc(1 * ls + 1); //the +1 is for memory for the 0-size elements
+		myobject.keys = malloc(1 * sizeof(ubjr_string_t));
+		for (myobject.size = 0; priv_ubjr_context_peek(ctx) != '}'; myobject.size++)
+		{
+			if (myobject.size >= (1ULL << arrpot))
+			{
+				arrpot++;
+				myobject.values = realloc(myobject.values, (1ULL << arrpot)*ls + 1);
+				myobject.keys = realloc(myobject.keys, (1ULL << arrpot)*sizeof(ubjr_string_t));
+			}
+			priv_read_to_ptr(ctx, myobject.keys + myobject.size, UBJ_STRING);
+			priv_read_to_ptr(ctx, (const uint8_t*)myobject.values + ls*myobject.size, myobject.type);
+		}
+	}
+	else
+	{
+		size_t i;
+		myobject.values = malloc(ls*myobject.size + 1);
+		myobject.keys = malloc(myobject.size * sizeof(ubjr_string_t));
+
+		for (i = 0; i < myobject.size; i++)
+		{
+			priv_ubjr_read_to_ptr(ctx, myobject.keys + myobject.size, UBJ_STRING);
+			priv_ubjr_read_to_ptr(ctx, (uint8_t*)myobject.values + ls*i, myobject.type);
+		}
+	}
+	return myobject;
+}

@@ -430,7 +430,7 @@ static inline void priv_ubjw_write_byteswap(ubjw_context_t* ctx, const uint8_t* 
 }
 void ubjw_write_buffer(ubjw_context_t* ctx, const uint8_t* data, UBJ_TYPE type, size_t count)
 {
-	int typesz = priv_UBJ_TYPE_size(type);
+	int typesz = UBJI_TYPE_size[type];
 	if (typesz < 0)
 	{
 		//error cannot read from a buffer of this type.
