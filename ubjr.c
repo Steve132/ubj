@@ -52,6 +52,33 @@ typedef struct ubjr_context_t_s
 	size_t total_read;
 } ubjr_context_t;
 
+ubjr_context_t* ubjr_open_callback(void* userdata,
+	size_t(*read_cb)(void* data, size_t size, size_t count, void* userdata),
+	int(*peek_cb)(void* userdata),
+	int(*close_cb)(void* userdata),
+	void(*error_cb)(const char* error_msg)
+	)
+{
+	ubjr_context_t* ctx = (ubjr_context_t*)malloc(sizeof(ubjr_context_t));
+	ctx->userdata = userdata;
+	ctx->read_cb = read_cb;
+	ctx->peek_cb = peek_cb;
+	ctx->close_cb = close_cb;
+	ctx->error_cb = error_cb;
+
+/*	ctx->head = ctx->container_stack;
+	ctx->head->flags = 0;
+	ctx->head->type = UBJ_MIXED;
+	ctx->head->elements_remaining = 0;
+
+	ctx->ignore_container_flags = 0;*/
+
+	ctx->last_error_code = 0;
+
+	ctx->total_read = 0;
+	return ctx;
+}
+
 static inline uint8_t priv_ubjr_context_getc(ubjr_context_t* ctx)
 {
 	uint8_t a;
@@ -67,6 +94,46 @@ static int fpeek(void* fp)
     ungetc(c, fp);
 
     return c;
+}
+
+ubjr_context_t* ubjr_open_file(FILE* fd)
+{
+	return ubjr_open_callback(fd, fread,fpeek,fclose, NULL);
+}
+
+static struct mem_r_fd
+{
+	const uint8_t *begin, *current, *end;
+};
+static int memclose(void* mfd)
+{
+	//free(mfd);
+	return 0;
+}
+static size_t memread(void* data, size_t size, size_t count, struct mem_r_fd* fp)
+{
+	size_t n = size*count;
+	size_t lim = fp->end - fp->current;
+	if (lim < n)
+	{
+		n = lim;
+	}
+	memcpy(data, fp->current, n);
+	fp->current += n;
+	return n;
+}
+static int mempeek(struct mem_r_fd* mfd)
+{
+	return *mfd->begin;
+}
+
+ubjr_context_t* ubjr_open_memory(const uint8_t* be, const uint8_t* en)
+{
+	struct mem_r_fd* mfd = (struct mem_r_fd*)malloc(sizeof(struct mem_r_fd));
+	mfd->current = be;
+	mfd->begin = be;
+	mfd->end = en;
+	return ubjr_open_callback(mfd, memread, mempeek,memclose, NULL);
 }
 
 static inline int priv_ubjr_context_peek(ubjr_context_t* ctx)
@@ -189,7 +256,15 @@ static inline uint32_t priv_ubjr_read_8b(ubjr_context_t* ctx)
 	return (uint64_t)priv_ubjr_read_4b(ctx) << 32ULL | priv_ubjr_read_4b(ctx);
 }
 
-static inline void priv_ubjr_read_to_ptr(const ubjr_context_t* ctx, uint8_t* dst, UBJ_TYPE typ)
+static inline int64_t priv_ubjw_read_integer(ubjr_context_t* ctx)
+{
+	ubjr_dynamic_t d = ubjr_read_dynamic(ctx);
+	if (d.type >= UBJ_INT8 && d.type <= UBJ_INT64)
+		return d.integer;
+	return 0;//error
+}
+static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx);
+static inline void priv_ubjr_read_to_ptr(ubjr_context_t* ctx, uint8_t* dst, UBJ_TYPE typ)
 {
 	int64_t n = 1;
 	char *tstr;
@@ -203,7 +278,7 @@ static inline void priv_ubjr_read_to_ptr(const ubjr_context_t* ctx, uint8_t* dst
 	case UBJ_STRING:
 	case UBJ_HIGH_PRECISION:
 	{
-		n = ubjw_read_integer(ctx);
+		n = priv_ubjw_read_integer(ctx);
 	}
 	case UBJ_CHAR:
 	{
@@ -269,18 +344,11 @@ ubjr_dynamic_t ubjr_object_lookup(ubjr_object_t* obj, const char* key)
 
 
 
-
-/*uint16_t ubjr_read_raw_uint16_t(ubjr_context_t* ctx)
-{
-	uint16_t r = (uint8_t)ubjr_read_raw_uint8_t(ctx) << 8 | (uint8_t)ubjr_read_raw_uint8_t(ctx);
-	return 
-}*/
-
 ubjr_dynamic_t ubjr_read_dynamic(ubjr_context_t* ctx)
 {
 	ubjr_dynamic_t scratch; //scratch memory
 	UBJ_TYPE newtyp = priv_ubjr_type_from_char(priv_ubjr_context_getc(ctx));
-	priv_ubjr_read_to_ptr(ctx, &scratch, newtyp);
+	priv_ubjr_read_to_ptr(ctx, (uint8_t*)&scratch, newtyp);
 	return priv_ubjr_pointer_to_dynamic(newtyp, &scratch);
 }
 
@@ -300,7 +368,7 @@ static inline void priv_read_container_params(ubjr_context_t* ctx, UBJ_TYPE* typ
 
 	if (nextchar == '#')
 	{
-		*sizeout = ubjw_read_integer(ctx);
+		*sizeout = priv_ubjw_read_integer(ctx);
 	}
 	else
 	{
@@ -327,7 +395,7 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 				arrpot ++;
 				myarray.values = realloc(myarray.values, (1ULL << arrpot)*ls+1);
 			}
-			priv_read_to_ptr(ctx,(const uint8_t*)myarray.values + ls*myarray.size,myarray.type);
+			priv_ubjr_read_to_ptr(ctx,(uint8_t*)myarray.values + ls*myarray.size,myarray.type);
 		}
 	}
 	else
@@ -355,7 +423,7 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 static inline ubjr_object_t priv_ubjr_read_raw_object(ubjr_context_t* ctx)
 {
 	ubjr_object_t myobject;
-	priv_read_container_params(ctx, &myobject.type, myobject.size);
+	priv_read_container_params(ctx, &myobject.type, &myobject.size);
 
 	size_t ls = UBJR_TYPE_localsize[myobject.type];
 	if (myobject.size == 0)
@@ -369,10 +437,10 @@ static inline ubjr_object_t priv_ubjr_read_raw_object(ubjr_context_t* ctx)
 			{
 				arrpot++;
 				myobject.values = realloc(myobject.values, (1ULL << arrpot)*ls + 1);
-				myobject.keys = realloc(myobject.keys, (1ULL << arrpot)*sizeof(ubjr_string_t));
+				myobject.keys = realloc((uint8_t*)myobject.keys, (1ULL << arrpot)*sizeof(ubjr_string_t));
 			}
-			priv_read_to_ptr(ctx, myobject.keys + myobject.size, UBJ_STRING);
-			priv_read_to_ptr(ctx, (const uint8_t*)myobject.values + ls*myobject.size, myobject.type);
+			priv_ubjr_read_to_ptr(ctx, (uint8_t*)(myobject.keys + myobject.size), UBJ_STRING);
+			priv_ubjr_read_to_ptr(ctx, (uint8_t*)myobject.values + ls*myobject.size, myobject.type);
 		}
 	}
 	else
@@ -383,7 +451,7 @@ static inline ubjr_object_t priv_ubjr_read_raw_object(ubjr_context_t* ctx)
 
 		for (i = 0; i < myobject.size; i++)
 		{
-			priv_ubjr_read_to_ptr(ctx, myobject.keys + myobject.size, UBJ_STRING);
+			priv_ubjr_read_to_ptr(ctx, (uint8_t*)(myobject.keys + myobject.size), UBJ_STRING);
 			priv_ubjr_read_to_ptr(ctx, (uint8_t*)myobject.values + ls*i, myobject.type);
 		}
 	}

@@ -87,14 +87,14 @@ void ubjw_write_buffer(ubjw_context_t* dst, const uint8_t* data, UBJ_TYPE type, 
 struct ubjr_context_t_s;//this should JUST be container. open array makes a copy of the current container...container can be default NULL which has special rules...no dont' do that
 typedef struct ubjr_context_t_s ubjr_context_t;
 
-struct ubjr_context_t* ubjr_open_callback(void* userdata,
+ubjr_context_t* ubjr_open_callback(void* userdata,
 	size_t(*read_cb)(void* data, size_t size, size_t count, void* userdata),
 	int(*peek_cb)(void* userdata),
 	int(*close_cb)(void* userdata),
 	void(*error_cb)(const char* error_msg)
 	);
-struct ubjr_context_t* ubjr_open_file(FILE*);
-struct ubjr_context_t* ubjr_open_memory(uint8_t* dst_b, uint8_t* dst_e);
+ubjr_context_t* ubjr_open_file(FILE*);
+ubjr_context_t* ubjr_open_memory(const uint8_t* dst_b, const uint8_t* dst_e);
 
 size_t ubjr_close_context(struct ubjr_context_t* ctx);
 
@@ -119,8 +119,8 @@ typedef struct ubjr_object_t_s
 	UBJ_TYPE type;
 	size_t size;
 	void* values;
-	const ubjr_string_t* keys;
-	const void* sorted_keys;
+	ubjr_string_t* keys;
+	void* sorted_keys;
 } ubjr_object_t;
 
 typedef struct ubjr_dynamic_t_s
@@ -137,8 +137,7 @@ typedef struct ubjr_dynamic_t_s
 	};
 } ubjr_dynamic_t;
 
-ubjr_dynamic_t ubjr_parse(ubjr_context_t* ctx);
-
+ubjr_dynamic_t ubjr_read_dynamic(ubjr_context_t* ctx);
 ubjr_dynamic_t ubjr_object_lookup(ubjr_object_t* obj, const char* key);
 
 //output an efficient buffer of types
