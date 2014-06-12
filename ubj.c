@@ -59,7 +59,7 @@ void ubjrw_write_dynamic_t(ubjw_context_t* ctx, ubjr_dynamic_t dobj)
 		{
 			ctyp = dobj.container_array.type;
 			csize = dobj.container_array.size;
-
+			size_t
 			size_t i;
 			ubjr_dynamic_t scratch;
 			size_t ls = UBJR_TYPE_localsize[dobj.container_array.type];
