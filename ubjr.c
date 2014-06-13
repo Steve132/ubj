@@ -1,29 +1,3 @@
-/*
-
-#define CONTAINER_IS_SIZED		0x1
-#define CONTAINER_IS_TYPED		0x2
-#define CONTAINER_IS_ARRAY		0x4
-#define CONTAINER_IS_OBJECT		0x8
-
-#define CONTAINER_EXPECTS_KEY	0x10
-
-
-#define CONTAINER_STACK_MAX		64
-#define BUFFER_OUT_SIZE			1024
-
-//note could possibly be both ways with just reader or writer flag for the context....at least so far..signature is the saem
-struct _ubjr_container_t
-{
-	uint8_t flags;
-	uint8_t type;
-	size_t elements_remaining;
-};
-
-
-void ubjw_read_string(ubjw_context_t* dst, const char* out);
-void ubjw_read_char(ubjw_context_t* dst, char out);
-*/
-
 #include "ubj.h"
 #include "ubj_internal.h"
 #include <stdlib.h>
