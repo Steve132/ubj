@@ -3,6 +3,7 @@
 void ubjrw_write_dynamic_t(ubjw_context_t* ctx, ubjr_dynamic_t dobj)
 {
 	size_t ctyp, csize;
+	uint8_t* cvalues;
 	switch (dobj.type)
 	{
 	case UBJ_MIXED:
@@ -59,20 +60,35 @@ void ubjrw_write_dynamic_t(ubjw_context_t* ctx, ubjr_dynamic_t dobj)
 		{
 			ctyp = dobj.container_array.type;
 			csize = dobj.container_array.size;
-			size_t
-			size_t i;
-			ubjr_dynamic_t scratch;
-			size_t ls = UBJR_TYPE_localsize[dobj.container_array.type];
-			ubjw_begin_array(ctx, dobj.container_array.type, dobj.container_array.size);
-			for (i = 0; i < dobj.container_array.size; i++)
-			{
-				scratch = priv_ubjr_pointer_to_dynamic(dobj.container_array.type, dobj.container_array.values+ls*i);
-				ubjrw_write_dynamic_t(ctx, scratch);
-			}
-			ubjw_end(ctx);
+			cvalues = dobj.container_array.values;
+			ubjw_begin_array(ctx, ctyp, csize);
+			break;
 		}
 	case UBJ_OBJECT:
-		break;
+		{
+			ctyp = dobj.container_object.type;
+			csize = dobj.container_object.size;
+			cvalues = dobj.container_object.values;
+
+			ubjw_begin_object(ctx, ctyp, csize);
+			break;
+		}
 	};
+	{
+		size_t i;
+		ubjr_dynamic_t scratch;
+		size_t ls = UBJR_TYPE_localsize[ctyp];
+
+		for (i = 0; i < csize; i++)
+		{
+			if (dobj.type == UBJ_OBJECT)
+			{
+				ubjw_write_key(dst, dobj.container_object.keys[i]);
+			}
+			scratch = priv_ubjr_pointer_to_dynamic(ctyp, cvalues + ls*i);
+			ubjrw_write_dynamic_t(ctx, scratch);
+		}
+		ubjw_end(ctx);
+	}
 
 }
