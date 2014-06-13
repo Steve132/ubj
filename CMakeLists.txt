@@ -3,9 +3,7 @@ project(ubj)
 
 add_library(ubj ubjw.c ubjr.c ubjrw.c ubj_internal.h ubj.h)
 
-add_executable(ubjwtest ubjw_test.c)
-add_executable(ubjrtest ubjr_test.c)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+add_subdirectory(tests)
 
-target_link_libraries(ubjwtest ubj)
-target_link_libraries(ubjrtest ubj)
 

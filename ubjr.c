@@ -40,6 +40,7 @@ ubjr_context_t* ubjr_open_callback(void* userdata,
 	ctx->close_cb = close_cb;
 	ctx->error_cb = error_cb;
 
+
 /*	ctx->head = ctx->container_stack;
 	ctx->head->flags = 0;
 	ctx->head->type = UBJ_MIXED;
@@ -246,12 +247,12 @@ static inline void priv_ubjr_read_to_ptr(ubjr_context_t* ctx, uint8_t* dst, UBJ_
 
 ubjr_dynamic_t ubjr_object_lookup(ubjr_object_t* obj, const char* key)
 {
-	if (obj->sorted_keys == NULL)
+	if (obj->metatable == NULL)
 	{
 		//memcpy(obj->sorted_keys,obj->keys)
-		obj->sorted_keys = priv_ubjr_object_build_sorted_keys(obj);
+		obj->metatable = priv_ubjr_object_build_sorted_keys(obj);
 	}
-	void* result=bsearch(key, obj->sorted_keys,obj->size, sizeof(priv_ubjr_sorted_key_t),_obj_key_cmp);
+	void* result=bsearch(key, obj->metatable,obj->size, sizeof(priv_ubjr_sorted_key_t),_obj_key_cmp);
 	if (result == NULL)
 	{
 		ubjr_dynamic_t nulldyn;
@@ -343,6 +344,7 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 static inline ubjr_object_t priv_ubjr_read_raw_object(ubjr_context_t* ctx)
 {
 	ubjr_object_t myobject;
+	myobject.metatable = NULL;
 	priv_read_container_params(ctx, &myobject.type, &myobject.size);
 
 	size_t ls = UBJR_TYPE_localsize[myobject.type];

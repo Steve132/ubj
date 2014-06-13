@@ -32,8 +32,16 @@ typedef enum
 	UBJ_ARRAY,
 	UBJ_OBJECT,
 
-	UBJ_NUM_TYPES //this is the size of how many types there are (chris' trick)
+	UBJ_NUM_TYPES				//this is the size of how many types there are (chris' trick)
 } UBJ_TYPE;
+
+
+
+//////////here is the declarations for the writer API////////////////////////////////////
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////
 
 struct ubjw_context_t_s;
 typedef struct ubjw_context_t_s ubjw_context_t;
@@ -84,45 +92,47 @@ void ubjw_write_buffer(ubjw_context_t* dst, const uint8_t* data, UBJ_TYPE type, 
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-struct ubjr_context_t_s;//this should JUST be container. open array makes a copy of the current container...container can be default NULL which has special rules...no dont' do that
+struct ubjr_context_t_s;
 typedef struct ubjr_context_t_s ubjr_context_t;
 
+//Open up a reader context for reading using a custom calllback
 ubjr_context_t* ubjr_open_callback(void* userdata,
 	size_t(*read_cb)(void* data, size_t size, size_t count, void* userdata),
 	int(*peek_cb)(void* userdata),
 	int(*close_cb)(void* userdata),
 	void(*error_cb)(const char* error_msg)
 	);
+
+//Open a context initialized to a UBJ file
 ubjr_context_t* ubjr_open_file(FILE*);
+
+//Open up a context initialized to a memory dump of a UBJ file (or a segment of a UBJ file)
 ubjr_context_t* ubjr_open_memory(const uint8_t* dst_b, const uint8_t* dst_e);
 
+//Close a reader context 
 size_t ubjr_close_context(struct ubjr_context_t* ctx);
-
-/*
-typedef struct ubjr_string_t_s
-{
-	const char* data;
-	size_t length;
-} ubjr_string_t;  //HAVE to do this because of the way strings are defined (unicode is valid so null-termination isn't)*/
 
 typedef const char* ubjr_string_t;
 
+//An array that you read from the stream
 typedef struct ubjr_array_t_s
 {
-	UBJ_TYPE type;
+	UBJ_TYPE type;	
 	size_t size;
 	void* values;
 } ubjr_array_t;
 
+//a map that you read from the stream
 typedef struct ubjr_object_t_s
 {
 	UBJ_TYPE type;
 	size_t size;
 	void* values;
 	ubjr_string_t* keys;
-	void* sorted_keys;
+	void* metatable;		//don't use this..only useful for computing object_lookup
 } ubjr_object_t;
 
+//a dynamic type that you parsed.
 typedef struct ubjr_dynamic_t_s
 {
 	UBJ_TYPE type;
@@ -137,6 +147,7 @@ typedef struct ubjr_dynamic_t_s
 	};
 } ubjr_dynamic_t;
 
+//Parse a dynamic object from the stream
 ubjr_dynamic_t ubjr_read_dynamic(ubjr_context_t* ctx);
 ubjr_dynamic_t ubjr_object_lookup(ubjr_object_t* obj, const char* key);
 
