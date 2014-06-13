@@ -106,3 +106,55 @@ static inline void buf_endian_swap(uint8_t* buf, size_t sz, size_t n)
 		};
 	}
 }
+
+//warning...null-terminated strings are assumed...when this is not necessarily valid. FIXED: we don't use null-terminated strings in the reader (NOT FIXED...string type is awkward)
+static inline ubjr_dynamic_t priv_ubjr_pointer_to_dynamic(UBJ_TYPE typ, const void* dat)
+{
+	ubjr_dynamic_t outdyn;
+	outdyn.type = typ;
+	size_t n = 1;
+	switch (typ)
+	{
+	case UBJ_NULLTYPE:
+	case UBJ_NOOP:
+		break;
+	case UBJ_BOOL_TRUE:
+	case UBJ_BOOL_FALSE:
+		outdyn.boolean = (typ == UBJ_BOOL_TRUE ? 1 : 0);
+		break;
+	case UBJ_HIGH_PRECISION:
+	case UBJ_STRING:
+	case UBJ_CHAR://possibly if char allocate, otherwise don't
+		outdyn.string = *(const ubjr_string_t*)dat;
+	case UBJ_INT8:
+		outdyn.integer = *(const int8_t*)dat;
+		break;
+	case UBJ_UINT8:
+		outdyn.integer = *(const uint8_t*)dat;
+		break;
+	case UBJ_INT16:
+		outdyn.integer = *(const int16_t*)dat;
+		break;
+	case UBJ_INT32:
+		outdyn.integer = *(const int32_t*)dat;
+		break;
+	case UBJ_INT64:
+		outdyn.integer = *(const int64_t*)dat;
+		break;
+	case UBJ_FLOAT32:
+		outdyn.real = *(const float*)dat;
+		break;
+	case UBJ_FLOAT64:
+		outdyn.real = *(const double*)dat;
+		break;
+	case UBJ_ARRAY:
+		outdyn.container_array = *(const ubjr_array_t*)dat;
+		break;
+	case UBJ_OBJECT:
+		outdyn.container_object = *(const ubjr_object_t*)dat;
+		break;
+	case UBJ_MIXED:
+		outdyn = *(const ubjr_dynamic_t*)dat;
+	};
+	return outdyn;
+}

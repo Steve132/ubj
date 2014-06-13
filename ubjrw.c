@@ -83,7 +83,7 @@ void ubjrw_write_dynamic_t(ubjw_context_t* ctx, ubjr_dynamic_t dobj)
 		{
 			if (dobj.type == UBJ_OBJECT)
 			{
-				ubjw_write_key(dst, dobj.container_object.keys[i]);
+				ubjw_write_key(ctx, dobj.container_object.keys[i]);
 			}
 			scratch = priv_ubjr_pointer_to_dynamic(ctyp, cvalues + ls*i);
 			ubjrw_write_dynamic_t(ctx, scratch);
