@@ -73,10 +73,10 @@ static int fpeek(void* fp)
 
 ubjr_context_t* ubjr_open_file(FILE* fd)
 {
-	return ubjr_open_callback(fd, fread,fpeek,fclose, NULL);
+	return ubjr_open_callback(fd, (void*)fread,(void*)fpeek,(void*)fclose, NULL);
 }
 
-static struct mem_r_fd
+struct mem_r_fd
 {
 	const uint8_t *begin, *current, *end;
 };
@@ -108,7 +108,7 @@ ubjr_context_t* ubjr_open_memory(const uint8_t* be, const uint8_t* en)
 	mfd->current = be;
 	mfd->begin = be;
 	mfd->end = en;
-	return ubjr_open_callback(mfd, memread, mempeek,memclose, NULL);
+	return ubjr_open_callback(mfd, (void*)memread, (void*)mempeek,(void*)memclose, NULL);
 }
 
 static inline int priv_ubjr_context_peek(ubjr_context_t* ctx)
@@ -379,3 +379,80 @@ static inline ubjr_object_t priv_ubjr_read_raw_object(ubjr_context_t* ctx)
 	}
 	return myobject;
 }
+static inline void priv_ubjr_cleanup_pointer(UBJ_TYPE typ,void* value);
+static inline priv_ubjr_cleanup_container(UBJ_TYPE type,size_t size,void* values)
+{
+	if(type == UBJ_MIXED || type == UBJ_ARRAY || type == UBJ_OBJECT || type == UBJ_STRING)
+	{
+		size_t i;
+		size_t ls=UBJR_TYPE_localsize[type];
+		uint8_t *viter,*vend;
+		viter=values;
+		vend=viter+ls*size;
+		for(;viter != vend;viter+=ls)
+		{
+			priv_ubjr_cleanup_pointer(type,(void*)viter);
+		}
+	}
+	free(values);
+}
+static inline void priv_ubjr_cleanup_pointer(UBJ_TYPE typ,void* value)
+{
+	switch(typ)
+	{
+		case UBJ_MIXED:
+		{
+			ubjr_dynamic_t* dyn=(ubjr_dynamic_t*)value;
+			switch(dyn->type)
+			{
+			case UBJ_STRING:
+				priv_ubjr_cleanup_pointer(UBJ_STRING,&dyn->string);
+				break;
+			case UBJ_ARRAY:
+				priv_ubjr_cleanup_pointer(UBJ_ARRAY,&dyn->container_array);
+				break;
+			case UBJ_OBJECT:
+				priv_ubjr_cleanup_pointer(UBJ_OBJECT,&dyn->container_object);
+				break;
+			};
+			break;
+		}
+		case UBJ_STRING:
+		{
+			ubjr_string_t* st=(ubjr_string_t*)value;
+			free((void*)*st);
+			break;
+		}
+		case UBJ_ARRAY:
+		{
+			ubjr_array_t* arr=(ubjr_array_t*)value;
+			priv_ubjr_cleanup_container(arr->type,arr->size,arr->values);
+			break;
+		}
+		case UBJ_OBJECT:
+		{
+			ubjr_object_t* obj=(ubjr_object_t*)value;
+			priv_ubjr_cleanup_container(obj->type,obj->size,obj->values);
+			priv_ubjr_cleanup_container(UBJ_STRING,obj->size,obj->keys);
+			if(obj->metatable)
+			{
+				free(obj->metatable);
+			}
+			break;
+		}
+	};
+}
+
+void ubjr_cleanup_dynamic(ubjr_dynamic_t* dyn)
+{
+	priv_ubjr_cleanup_pointer(UBJ_MIXED,dyn);
+}
+void ubjr_cleanup_array(ubjr_array_t* arr)
+{
+	priv_ubjr_cleanup_pointer(UBJ_ARRAY,arr);
+}
+void ubjr_cleanup_object(ubjr_object_t* obj)
+{
+	priv_ubjr_cleanup_pointer(UBJ_OBJECT,obj);
+}
+

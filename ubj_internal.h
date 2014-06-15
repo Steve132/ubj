@@ -1,5 +1,5 @@
 #ifndef UBJ_INTERNAL_H
-#endif UBJ_INTERNAL_H
+#define UBJ_INTERNAL_H
 
 #include "ubj.h"
 #include <stdlib.h>
@@ -158,3 +158,5 @@ static inline ubjr_dynamic_t priv_ubjr_pointer_to_dynamic(UBJ_TYPE typ, const vo
 	};
 	return outdyn;
 }
+
+#endif

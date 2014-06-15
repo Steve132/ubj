@@ -110,9 +110,9 @@ ubjr_context_t* ubjr_open_file(FILE*);
 ubjr_context_t* ubjr_open_memory(const uint8_t* dst_b, const uint8_t* dst_e);
 
 //Close a reader context 
-size_t ubjr_close_context(struct ubjr_context_t* ctx);
+size_t ubjr_close_context(ubjr_context_t* ctx);
 
-typedef const char* ubjr_string_t;
+typedef char* ubjr_string_t;
 
 //An array that you read from the stream
 typedef struct ubjr_array_t_s
@@ -149,12 +149,15 @@ typedef struct ubjr_dynamic_t_s
 
 //Parse a dynamic object from the stream
 ubjr_dynamic_t ubjr_read_dynamic(ubjr_context_t* ctx);
+void ubjr_cleanup_dynamic(ubjr_dynamic_t* dyn);
 ubjr_dynamic_t ubjr_object_lookup(ubjr_object_t* obj, const char* key);
 
 //output an efficient buffer of types
 ///void ubjr_read_buffer(struct ubjr_context_t* dst, const uint8_t* data, UBJ_TYPE type, size_t count);
 
-
+void ubjr_cleanup_dynamic(ubjr_dynamic_t* dyn);
+void ubjr_cleanup_array(ubjr_array_t* arr);
+void ubjr_cleanup_object(ubjr_object_t* obj);
 
 
 

@@ -3,6 +3,6 @@
 
 int main(int argc, char** argv)
 {
-	printf("%d\n", sizeof(ubjr_dynamic_t));
+	printf("%d\n", (int)sizeof(ubjr_dynamic_t));
 	return 0;
 }

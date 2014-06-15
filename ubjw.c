@@ -11,6 +11,8 @@
 #define CONTAINER_STACK_MAX		64
 #define BUFFER_OUT_SIZE			1024
 
+#define MAX_DIMS	8
+
 
 struct priv_ubjw_container_t
 {
@@ -55,6 +57,7 @@ ubjw_context_t* ubjw_open_callback(void* userdata,
 	ctx->head->flags = 0;
 	ctx->head->type = UBJ_MIXED;
 	ctx->head->elements_remaining = 0;
+	//ctx->head->num_dims=1;
 
 	ctx->ignore_container_flags = 0;
 
@@ -65,13 +68,14 @@ ubjw_context_t* ubjw_open_callback(void* userdata,
 }
 ubjw_context_t* ubjw_open_file(FILE* fd)
 {
-	return ubjw_open_callback(fd, fwrite,fclose,NULL);
+	return ubjw_open_callback(fd, (void*)fwrite,(void*)fclose,NULL);
 }
 
-static struct mem_w_fd
+struct mem_w_fd
 {
 	uint8_t *begin,*current, *end;
 };
+
 static int memclose(void* mfd)
 {
 	free(mfd);
@@ -96,7 +100,7 @@ ubjw_context_t* ubjw_open_memory(uint8_t* be, uint8_t* en)
 	mfd->current = be;
 	mfd->begin = be;
 	mfd->end = en;
-	return ubjw_open_callback(mfd, memwrite, memclose,NULL);
+	return ubjw_open_callback(mfd, (void*)memwrite, (void*)memclose,NULL);
 }
 
 static inline void priv_ubjw_context_append(ubjw_context_t* ctx, uint8_t a)
@@ -413,7 +417,12 @@ void ubjw_end(ubjw_context_t* ctx)
 	priv_ubjw_context_finish_container(ctx, &ch);
 }
 
-
+#ifndef min
+static inline size_t min(size_t x,size_t y)
+{
+	return x < y ? x : y;
+}
+#endif
 static inline void priv_ubjw_write_byteswap(ubjw_context_t* ctx, const uint8_t* data, int sz, size_t count)
 {
 	uint8_t buf[BUFFER_OUT_SIZE];
