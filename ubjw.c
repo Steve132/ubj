@@ -281,30 +281,51 @@ void ubjw_write_high_precision(ubjw_context_t* ctx, const char* hp)
 	priv_ubjw_tag_public(ctx,UBJ_HIGH_PRECISION);
 	priv_ubjw_write_raw_string(ctx, hp);
 }
-
-void ubjw_write_integer(ubjw_context_t* ctx, int64_t out)
+UBJ_TYPE ubjw_min_integer_type(int64_t in)
 {
-	uint64_t mc = llabs(out);
+	uint64_t mc = llabs(in);
 	if (mc < 0x80)
 	{
-		ubjw_write_int8(ctx, (int8_t)out);
+		return UBJ_INT8;
 	}
-	else if (out > 0 && mc < 0x100)
+	else if (in > 0 && mc < 0x100)
 	{
-		ubjw_write_uint8(ctx, (uint8_t)out);
+		return UBJ_UINT8;
 	}
 	else if (mc < 0x8000)
 	{
-		ubjw_write_int16(ctx, (int16_t)out);
+		return UBJ_INT16;
 	}
 	else if (mc < 0x80000000)
 	{
-		ubjw_write_int32(ctx, (int32_t)out);
+		return UBJ_INT32;
 	}
 	else
 	{
-		ubjw_write_int64(ctx, out);
+		return UBJ_INT64;
 	}
+}
+
+void ubjw_write_integer(ubjw_context_t* ctx, int64_t out)
+{
+	switch (ubjw_min_integer_type(out))
+	{
+	case UBJ_INT8:
+		ubjw_write_int8(ctx, (int8_t)out);
+		break;
+	case UBJ_UINT8:
+		ubjw_write_uint8(ctx, (uint8_t)out);
+		break;
+	case UBJ_INT16:
+		ubjw_write_int16(ctx, (int16_t)out);
+		break;
+	case UBJ_INT32:
+		ubjw_write_int32(ctx, (int32_t)out);
+		break;
+	default:
+		ubjw_write_int64(ctx, out);
+		break;
+	};
 }
 
 static inline void priv_ubjw_write_raw_float32(ubjw_context_t* ctx, float out)
@@ -386,6 +407,8 @@ void ubjw_begin_array(ubjw_context_t* ctx, UBJ_TYPE type, size_t count)
 	ch.flags |= CONTAINER_IS_UBJ_ARRAY;
 	priv_ubjw_container_stack_push(ctx, &ch);
 }
+void ubjw_begin_ndarray(ubjw_context_t* dst, UBJ_TYPE type, const size_t* dims, uint8_t ndims);
+void ubjw_write_ndbuffer(ubjw_context_t* dst, const uint8_t* data, UBJ_TYPE type, const size_t* dims, uint8_t ndims);
 
 void ubjw_begin_object(ubjw_context_t* ctx, UBJ_TYPE type, size_t count)
 {

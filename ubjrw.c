@@ -1,8 +1,77 @@
 #include "ubj_internal.h"
 
-void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj)
+static uint32_t compute_typemask(ubjr_dynamic_t* vals, size_t sz)
 {
-	UBJ_TYPE ctyp;
+	uint32_t typemask = 0;
+	size_t i;
+	for (i = 0; i < sz; i++)
+	{
+		typemask |= 1UL << vals[i].type;
+	}
+	return typemask;
+}
+
+static inline UBJ_TYPE typemask2type(uint32_t v)
+{
+	unsigned int r = 0; // r will be lg(v)
+
+	while (v >>= 1) // unroll for more speed...
+	{
+		r++;
+	}
+	return (UBJ_TYPE)r;
+}
+static UBJ_TYPE compute_best_integer_type(ubjr_dynamic_t* vals, size_t sz)
+{
+	uint32_t typemask = 0;
+	size_t i;
+	for (i = 0; i < sz; i++)
+	{
+		typemask |= 1UL << ubjw_min_integer_type(vals[i].integer);
+	}
+	return typemask2type(typemask);
+}
+static uint32_t compute_best_string_type(ubjr_dynamic_t* vals, size_t sz)
+{
+	size_t i;
+	for (i = 0; i < sz; i++)
+	{
+		if (strlen(vals[i].string) > 1)
+		{
+			return UBJ_STRING;
+		}
+	}
+	return UBJ_CHAR;
+}
+static UBJ_TYPE optimize_type(UBJ_TYPE typein,ubjr_dynamic_t* vals, size_t sz)
+{
+	static const uint32_t intmask = (1 << UBJ_INT8) | (1 << UBJ_UINT8) | (1 << UBJ_INT16) | (1 << UBJ_INT32) | (1 << UBJ_INT64);
+	static const uint32_t stringmask = (1 << UBJ_STRING) | (1 << UBJ_CHAR);
+	if (typein != UBJ_MIXED)
+		return typein;
+	//integer optimization can be done here...
+	uint32_t tm = compute_typemask(vals, sz);
+	if ((tm & intmask) == tm) //if all values are integers
+	{
+		return compute_best_integer_type(vals,sz);	//calculate the optimum type given the data
+	}
+	else if ((tm & stringmask) == tm)
+	{
+		return compute_best_string_type(vals,sz);
+	}
+	else if(tm && !(tm & (tm- 1)))  //if only one bit is set in typemask
+	{
+		return typemask2type(tm); //figure out which bit is set.
+	}
+	else
+	{
+		return UBJ_MIXED;
+	}
+}
+
+void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj,uint8_t optimize)
+{
+	UBJ_TYPE ctyp,otyp;
 	size_t csize;
 	uint8_t* cvalues;
 	switch (dobj.type)
@@ -62,7 +131,8 @@ void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj)
 			ctyp = dobj.container_array.type;
 			csize = dobj.container_array.size;
 			cvalues = dobj.container_array.values;
-			ubjw_begin_array(ctx, ctyp, csize);
+			otyp = optimize ? optimize_type(ctyp,(ubjr_dynamic_t*)cvalues,csize) : ctyp;
+			ubjw_begin_array(ctx, otyp, csize);
 			break;
 		}
 	case UBJ_OBJECT:
@@ -70,8 +140,8 @@ void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj)
 			ctyp = dobj.container_object.type;
 			csize = dobj.container_object.size;
 			cvalues = dobj.container_object.values;
-
-			ubjw_begin_object(ctx, ctyp, csize);
+			otyp = optimize ? optimize_type(ctyp, (ubjr_dynamic_t*)cvalues, csize) : ctyp;
+			ubjw_begin_object(ctx, otyp, csize);
 			break;
 		}
 	};
@@ -87,7 +157,8 @@ void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj)
 				ubjw_write_key(ctx, dobj.container_object.keys[i]);
 			}
 			scratch = priv_ubjr_pointer_to_dynamic(ctyp, cvalues + ls*i);
-			ubjrw_write_dynamic(ctx, scratch);
+			scratch.type = otyp;
+			ubjrw_write_dynamic(ctx, scratch,optimize);
 		}
 		ubjw_end(ctx);
 	}

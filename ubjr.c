@@ -144,13 +144,16 @@ static int _obj_key_cmp(const void* av, const void* bv)
 	return strcmp(a->key,b->key);
 }
 
-
-
 static inline UBJ_TYPE priv_ubjr_type_from_char(uint8_t c)
 {
 	int i = 0;								//TODO: Benchmark this and see if it should be a switch statement where the compiler implements fastest switch e.g. binary search (17 cases might be binary search fast)
 	for (i = 0; i < UBJ_NUM_TYPES && UBJI_TYPEC_convert[i] != c; i++);
 	return (UBJ_TYPE)i;
+}
+
+size_t ubjr_local_type_size(UBJ_TYPE typ)
+{
+	return UBJR_TYPE_localsize[typ];
 }
 
 
@@ -270,6 +273,22 @@ ubjr_dynamic_t ubjr_object_lookup(ubjr_object_t* obj, const char* key)
 	return priv_ubjr_pointer_to_dynamic(obj->type,result_key->value);
 }
 
+size_t ubjr_ndarray_index(const ubjr_array_t* arr, const size_t* indices)
+{
+	//multi-dimensional array to linear array lookup
+	size_t cstride = 1;
+	size_t cdex = 0;
+	uint8_t i;
+	uint8_t nd = arr->num_dims;
+	const size_t* dims = arr->dims;
+	for (i = 0; i<nd; i++)
+	{
+		cdex += cstride*indices[i];
+		cstride *= dims[i];
+	}
+	return cdex;
+}
+
 
 
 ubjr_dynamic_t ubjr_read_dynamic(ubjr_context_t* ctx)
@@ -303,13 +322,35 @@ static inline void priv_read_container_params(ubjr_context_t* ctx, UBJ_TYPE* typ
 		*sizeout = 0;
 	}
 }
-
 //TODO: This can be reused for object
 
 static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 {
 	ubjr_array_t myarray;
 	priv_read_container_params(ctx,&myarray.type,&myarray.size);
+	myarray.num_dims = 1;
+	myarray.dims = NULL;
+	if (myarray.type != UBJ_MIXED && myarray.size==0) //params detected this is a typed array but no size was detected..possibly an N-D array?
+	{
+		if (priv_ubjr_context_peek(ctx) == '@')
+		{
+			uint8_t dselect;
+			priv_ubjr_context_getc(ctx);//skip over the '@' marker
+			myarray.num_dims = priv_ubjr_context_getc(ctx);//since max is 8, no type indicator needed...always a int7 type
+			if (myarray.num_dims > 8)
+			{
+				//todo: error
+			}
+			myarray.dims = malloc(sizeof(size_t)*myarray.num_dims);
+			myarray.size = 1;
+			for (dselect = 0; dselect < myarray.num_dims; dselect++)
+			{
+				size_t d = priv_ubjw_read_integer(ctx);
+				myarray.dims[dselect] = d;
+				myarray.size *= d;
+			}
+		}
+	}
 
 	size_t ls = UBJR_TYPE_localsize[myarray.type];
 	if (myarray.size == 0)
@@ -344,6 +385,11 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 				priv_ubjr_read_to_ptr(ctx, (uint8_t*)myarray.values + ls*i, myarray.type);
 			}
 		}
+	}
+	if (myarray.dims == NULL)
+	{
+		myarray.dims = malloc(sizeof(size_t));
+		myarray.dims[0] = myarray.size;
 	}
 	return myarray;
 }
@@ -433,6 +479,7 @@ static inline void priv_ubjr_cleanup_pointer(UBJ_TYPE typ,void* value)
 		{
 			ubjr_array_t* arr=(ubjr_array_t*)value;
 			priv_ubjr_cleanup_container(arr->type,arr->size,arr->values);
+			free(arr->dims);
 			break;
 		}
 		case UBJ_OBJECT:

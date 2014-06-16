@@ -1,6 +1,7 @@
 #include "ubj.h"
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 static const char expected_mixed_dynamic_array[]= "[i\x05Si\x05helloi\x0a]";
 void test_mixed_dynamic_array(ubjw_context_t* ctx)
@@ -162,7 +163,7 @@ void run_test(const char* name, void(*tp)(ubjw_context_t* ctx), const char* expe
 	ubjr_context_t* rctx = ubjr_open_memory(expected,expected+sz);
 	ubjw_context_t* wctx = ubjw_open_memory(memory,memory+2*sz);
 	ubjr_dynamic_t filestruct=ubjr_read_dynamic(rctx);
-	ubjrw_write_dynamic(ctx,filestruct);
+	ubjrw_write_dynamic(ctx,filestruct,0);
 
 	printf("%s_readwrite :",name);
 	comparemem(memory,expected,sz,n);
