@@ -1,8 +1,6 @@
 #include<stdio.h>
 #include<ubj.h>
 
-
-
 void print_help()
 {
 	
