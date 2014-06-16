@@ -78,6 +78,19 @@ void test_integer_types(ubjw_context_t* ctx)
 	ubjw_end(ctx);
 }
 
+static const char expected_integer_compressor[] = "[i\x33U\xFFI\x33\x33l\x33\x33\x33\x33L\x33\x33\x33\x33\x33\x33\x33\x33]";
+void test_integer_compressor(ubjw_context_t* ctx)
+{
+	ubjw_begin_array(ctx,UBJ_MIXED,0);
+		ubjw_write_integer(ctx,0x33);
+		ubjw_write_integer(ctx,0xFF);
+		ubjw_write_integer(ctx,0x3333);
+		ubjw_write_integer(ctx,0x33333333);
+		ubjw_write_integer(ctx,0x3333333333333333LL);
+	ubjw_end(ctx);
+}
+
+
 
 /*typedef enum
 {
