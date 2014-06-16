@@ -2,7 +2,8 @@
 
 void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj)
 {
-	size_t ctyp, csize;
+	UBJ_TYPE ctyp;
+	size_t csize;
 	uint8_t* cvalues;
 	switch (dobj.type)
 	{

@@ -120,6 +120,8 @@ typedef struct ubjr_array_t_s
 	UBJ_TYPE type;	
 	size_t size;
 	void* values;
+	uint8_t num_dims;
+	size_t* dims;//this could be faster if it was constant size, but would also make the size of the dynamic object a LOT bigger
 } ubjr_array_t;
 
 //a map that you read from the stream

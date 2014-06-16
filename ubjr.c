@@ -56,7 +56,9 @@ ubjr_context_t* ubjr_open_callback(void* userdata,
 
 size_t ubjr_close_context(ubjr_context_t* ctx)
 {
+	size_t n = ctx->total_read;
 	free(ctx);
+	return n;
 }
 
 static inline uint8_t priv_ubjr_context_getc(ubjr_context_t* ctx)
@@ -104,7 +106,7 @@ static size_t memread(void* data, size_t size, size_t count, struct mem_r_fd* fp
 }
 static int mempeek(struct mem_r_fd* mfd)
 {
-	return *mfd->begin;
+	return *mfd->current;
 }
 
 ubjr_context_t* ubjr_open_memory(const uint8_t* be, const uint8_t* en)
@@ -389,7 +391,6 @@ static inline priv_ubjr_cleanup_container(UBJ_TYPE type,size_t size,void* values
 {
 	if(type == UBJ_MIXED || type == UBJ_ARRAY || type == UBJ_OBJECT || type == UBJ_STRING)
 	{
-		size_t i;
 		size_t ls=UBJR_TYPE_localsize[type];
 		uint8_t *viter,*vend;
 		viter=values;
