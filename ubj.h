@@ -163,7 +163,7 @@ void ubjr_cleanup_object(ubjr_object_t* obj);
 
 ///////UBJ_RW api
 
-void ubjrw_write_dynamic_t(ubjw_context_t* ctx, ubjr_dynamic_t dobj);
+void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj);
 //ubjrw_append_object(ubjw_context_t* ctx, ubjr_dynamic_t dobj);
 //ubjrw_append_array(ubjw_context_t* ctx, ubjr_dynamic_t dobj);
 

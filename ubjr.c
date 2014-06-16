@@ -54,6 +54,11 @@ ubjr_context_t* ubjr_open_callback(void* userdata,
 	return ctx;
 }
 
+size_t ubjr_close_context(ubjr_context_t* ctx)
+{
+	free(ctx);
+}
+
 static inline uint8_t priv_ubjr_context_getc(ubjr_context_t* ctx)
 {
 	uint8_t a;
@@ -117,7 +122,7 @@ static inline int priv_ubjr_context_peek(ubjr_context_t* ctx)
 }
 static inline size_t priv_ubjr_context_read(ubjr_context_t* ctx,uint8_t* dst,size_t n)
 {
-	size_t nr=ctx->read_cb(&dst,n,1,ctx->userdata);
+	size_t nr=ctx->read_cb(dst,n,1,ctx->userdata);
 	ctx->total_read+=nr;
 	return nr;
 }

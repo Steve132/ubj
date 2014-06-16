@@ -131,16 +131,11 @@ void printhex(const char* buffer, size_t sz)
 		}
 	}
 }
-void run_test(const char* name, void(*tp)(ubjw_context_t* ctx), const char* expected)
+
+void comparemem(const uint8_t* memory,const uint8_t* expected,size_t sz,size_t n)
 {
-	size_t sz=strlen(expected);
-	printf("%s :", name);
-	uint8_t* memory = malloc(2 * sz);
-	ubjw_context_t* ctx = ubjw_open_memory(memory, memory + 2 * sz);
-	tp(ctx);
-	size_t n = ubjw_close_context(ctx);//returns total written?  maybe?
 	int c = memcmp(memory, expected, sz);
-	if (c == 0)
+	if (c == 0 && n==sz)
 	{
 		printf("PASSED\n");
 	}
@@ -152,6 +147,33 @@ void run_test(const char* name, void(*tp)(ubjw_context_t* ctx), const char* expe
 		printhex(expected, sz);
 		printf(")\n");
 	}
+}
+
+void run_test(const char* name, void(*tp)(ubjw_context_t* ctx), const char* expected)
+{
+	size_t sz=strlen(expected);
+	printf("%s :", name);
+	uint8_t* memory = malloc(2 * sz);
+	ubjw_context_t* ctx = ubjw_open_memory(memory, memory + 2 * sz);
+	tp(ctx);
+	size_t n = ubjw_close_context(ctx);//returns total written?  maybe?
+	comparemem(memory,expected,sz,n);
+
+	ubjr_context_t* rctx = ubjr_open_memory(expected,expected+sz);
+	ubjw_context_t* wctx = ubjw_open_memory(memory,memory+2*sz);
+	ubjr_dynamic_t filestruct=ubjr_read_dynamic(rctx);
+	ubjrw_write_dynamic(ctx,filestruct);
+
+	printf("%s_readwrite :",name);
+	comparemem(memory,expected,sz,n);
+
+	ubjr_cleanup_dynamic(&filestruct);
+
+	ubjr_close_context(rctx);
+	ubjw_close_context(wctx);
+	
+	//run readwrite test
+
 	free(memory);
 }
 

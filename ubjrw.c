@@ -1,6 +1,6 @@
 #include "ubj_internal.h"
 
-void ubjrw_write_dynamic_t(ubjw_context_t* ctx, ubjr_dynamic_t dobj)
+void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj)
 {
 	size_t ctyp, csize;
 	uint8_t* cvalues;
@@ -86,7 +86,7 @@ void ubjrw_write_dynamic_t(ubjw_context_t* ctx, ubjr_dynamic_t dobj)
 				ubjw_write_key(ctx, dobj.container_object.keys[i]);
 			}
 			scratch = priv_ubjr_pointer_to_dynamic(ctyp, cvalues + ls*i);
-			ubjrw_write_dynamic_t(ctx, scratch);
+			ubjrw_write_dynamic(ctx, scratch);
 		}
 		ubjw_end(ctx);
 	}

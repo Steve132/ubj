@@ -126,6 +126,7 @@ static inline ubjr_dynamic_t priv_ubjr_pointer_to_dynamic(UBJ_TYPE typ, const vo
 	case UBJ_STRING:
 	case UBJ_CHAR://possibly if char allocate, otherwise don't
 		outdyn.string = *(const ubjr_string_t*)dat;
+		break;
 	case UBJ_INT8:
 		outdyn.integer = *(const int8_t*)dat;
 		break;
