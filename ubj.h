@@ -123,16 +123,19 @@ typedef char* ubjr_string_t;
 //An array that you read from the stream
 typedef struct ubjr_array_t_s
 {
+	uint8_t originally_sized;
 	UBJ_TYPE type;	
 	size_t size;	//total number of elements
 	void* values;
 	uint8_t num_dims;
-	size_t* dims;//this could be faster if it was constant size, but would also make the size of the dynamic object a LOT bigger
+	size_t* dims;	//this could be faster if it was constant size, but would also make the size of the dynamic object a LOT bigger
+
 } ubjr_array_t;
 
 //a map that you read from the stream
 typedef struct ubjr_object_t_s
 {
+	uint8_t originally_sized;
 	UBJ_TYPE type;
 	size_t size;
 	void* values;
@@ -161,7 +164,7 @@ void ubjr_cleanup_dynamic(ubjr_dynamic_t* dyn);
 
 ubjr_dynamic_t ubjr_object_lookup(ubjr_object_t* obj, const char* key);
 size_t ubjr_local_type_size(UBJ_TYPE typ);//should be equivalent to sizeof()
-size_t ubjr_ndarray_index(ubjr_array_t* arr, const size_t* indices);
+size_t ubjr_ndarray_index(const ubjr_array_t* arr, const size_t* indices);
 
 
 //output an efficient buffer of types

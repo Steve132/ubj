@@ -109,6 +109,31 @@ static inline void priv_ubjw_context_append(ubjw_context_t* ctx, uint8_t a)
 	ctx->write_cb(&a, 1, 1, ctx->userdata);
 }
 
+static inline void priv_disassembly_begin(ubjw_context_t* ctx)
+{
+#ifdef UBJW_DISASSEMBLY_MODE
+	priv_ubjw_context_append(ctx, (uint8_t)'[');
+#endif
+}
+static inline void priv_disassembly_end(ubjw_context_t* ctx)
+{
+#ifdef UBJW_DISASSEMBLY_MODE
+	priv_ubjw_context_append(ctx, (uint8_t)']');
+#endif
+}
+static inline void priv_disassembly_indent(ubjw_context_t* ctx)
+{
+#ifdef UBJW_DISASSEMBLY_MODE
+	int n = ctx->head - ctx->container_stack;
+	int i;
+	priv_ubjw_context_append(ctx, (uint8_t)'\n');
+	for (i = 0; i < n; i++)
+	{
+		priv_ubjw_context_append(ctx, (uint8_t)'\t');
+	}
+#endif
+}
+
 static inline void priv_ubjw_context_finish_container(ubjw_context_t* ctx, struct priv_ubjw_container_t* head)
 {
 	if (head->flags & CONTAINER_IS_SIZED)
@@ -118,13 +143,18 @@ static inline void priv_ubjw_context_finish_container(ubjw_context_t* ctx, struc
 			//error not all elements written
 		}
 	}
-	else if (head->flags & CONTAINER_IS_UBJ_ARRAY)
+	else
 	{
-		priv_ubjw_context_append(ctx, (uint8_t)']');
-	}
-	else if (head->flags & CONTAINER_IS_UBJ_OBJECT)
-	{
-		priv_ubjw_context_append(ctx, (uint8_t)'}');
+		priv_disassembly_begin(ctx);
+		if (head->flags & CONTAINER_IS_UBJ_ARRAY)
+		{
+			priv_ubjw_context_append(ctx, (uint8_t)']');
+		}
+		else if (head->flags & CONTAINER_IS_UBJ_OBJECT)
+		{
+			priv_ubjw_context_append(ctx, (uint8_t)'}');
+		}
+		priv_disassembly_end(ctx);
 	}
 }
 
@@ -171,31 +201,40 @@ static inline void priv_ubjw_tag_public(ubjw_context_t* ctx, UBJ_TYPE tid)
 	struct priv_ubjw_container_t* ch = ctx->head;
 	if (!ctx->ignore_container_flags)
 	{
+
 		/*if (
 			(!(ch->flags & (CONTAINER_IS_UBJ_ARRAY | CONTAINER_IS_UBJ_OBJECT))) &&
 			(tid != UBJ_ARRAY && tid !=UBJ_OBJECT))
 		{
 			//error, only array and object can be first written
 		}*/
-		if (ch->flags & CONTAINER_EXPECTS_KEY)
-		{
-			//error,a key expected
-			return;
-		}
-		if (ch->flags & CONTAINER_IS_SIZED)
-		{
-			ch->elements_remaining--; //todo: error if elements remaining is 0;
-		}
-		if (ch->flags & CONTAINER_IS_UBJ_OBJECT)
-		{
-			ch->flags |= CONTAINER_EXPECTS_KEY; //set key expected next time in this context
-		}
 		if ((ch->flags & CONTAINER_IS_TYPED) && ch->type == tid)
 		{
 			return;
 		}
+
+		if (ch->flags & CONTAINER_IS_UBJ_OBJECT)
+		{
+			if (ch->flags & CONTAINER_EXPECTS_KEY)
+			{
+				//error,a key expected
+				return;
+			}
+			ch->flags |= CONTAINER_EXPECTS_KEY; //set key expected next time in this context
+		}
+		else
+		{
+			priv_disassembly_indent(ctx);
+		}
+
+		if (ch->flags & CONTAINER_IS_SIZED)
+		{
+			ch->elements_remaining--; //todo: error if elements remaining is 0;
+		}
 	}
+	priv_disassembly_begin(ctx);
 	priv_ubjw_context_append(ctx, UBJI_TYPEC_convert[tid]);
+	priv_disassembly_end(ctx);
 }
 
 static inline void priv_ubjw_write_raw_string(ubjw_context_t* ctx, const char* out)//TODO: possibly use a safe string
@@ -204,7 +243,9 @@ static inline void priv_ubjw_write_raw_string(ubjw_context_t* ctx, const char* o
 	ctx->ignore_container_flags = 1; 
 	ubjw_write_integer(ctx, (int64_t)n);
 	ctx->ignore_container_flags = 0;
+	priv_disassembly_begin(ctx);
 	priv_ubjw_context_write(ctx, (const uint8_t*)out, n);
+	priv_disassembly_end(ctx);
 }
 void ubjw_write_string(ubjw_context_t* ctx, const char* out)
 {
@@ -214,7 +255,9 @@ void ubjw_write_string(ubjw_context_t* ctx, const char* out)
 
 static inline void priv_ubjw_write_raw_char(ubjw_context_t* ctx, char out)
 {
+	priv_disassembly_begin(ctx);
 	priv_ubjw_context_append(ctx, (uint8_t)out);
+	priv_disassembly_end(ctx);
 }
 void ubjw_write_char(ubjw_context_t* ctx, char out)
 {
@@ -222,9 +265,30 @@ void ubjw_write_char(ubjw_context_t* ctx, char out)
 	priv_ubjw_write_raw_char(ctx, out);
 }
 
+#ifdef UBJW_DISASSEMBLY_MODE
+#include <stdarg.h>  
+#define DISASSEMBLY_PRINT_BUFFER_SIZE 1024
+static inline priv_disassembly_print(ubjw_context_t* ctx, const char* format,...)
+{
+	char buffer[DISASSEMBLY_PRINT_BUFFER_SIZE];
+	va_list args; 
+	va_start(args, format);
+	int n=vsnprintf(buffer, DISASSEMBLY_PRINT_BUFFER_SIZE, format, args);
+	n = min(n, DISASSEMBLY_PRINT_BUFFER_SIZE);
+	priv_ubjw_context_write(ctx, buffer,n);
+	va_end(args);
+}
+#endif
+
 static inline void priv_ubjw_write_raw_uint8(ubjw_context_t* ctx, uint8_t out)
 {
+	priv_disassembly_begin(ctx);
+#ifndef UBJW_DISASSEMBLY_MODE
 	priv_ubjw_context_append(ctx, out);
+#else
+	priv_disassembly_print(ctx, "%hhu", out);
+#endif
+	priv_disassembly_end(ctx);
 }
 void ubjw_write_uint8(ubjw_context_t* ctx, uint8_t out)
 {
@@ -234,7 +298,13 @@ void ubjw_write_uint8(ubjw_context_t* ctx, uint8_t out)
 
 static inline void priv_ubjw_write_raw_int8(ubjw_context_t* ctx, int8_t out)
 {
+	priv_disassembly_begin(ctx);
+#ifndef UBJW_DISASSEMBLY_MODE
 	priv_ubjw_context_append(ctx, *(uint8_t*)&out);
+#else
+	priv_disassembly_print(ctx, "%hhd", out);
+#endif
+	priv_disassembly_end(ctx);
 }
 void ubjw_write_int8(ubjw_context_t* ctx, int8_t out)
 {
@@ -244,9 +314,15 @@ void ubjw_write_int8(ubjw_context_t* ctx, int8_t out)
 
 static inline void priv_ubjw_write_raw_int16(ubjw_context_t* ctx, int16_t out)
 {
+	priv_disassembly_begin(ctx);
+#ifndef UBJW_DISASSEMBLY_MODE
 	uint8_t buf[2];
 	_to_bigendian16(buf, *(uint16_t*)&out);
 	priv_ubjw_context_write(ctx, buf, 2);
+#else
+	priv_disassembly_print(ctx, "%hd", out);
+#endif
+	priv_disassembly_end(ctx);
 }
 void ubjw_write_int16(ubjw_context_t* ctx, int16_t out)
 {
@@ -255,9 +331,15 @@ void ubjw_write_int16(ubjw_context_t* ctx, int16_t out)
 }
 static inline void priv_ubjw_write_raw_int32(ubjw_context_t* ctx, int32_t out)
 {
+	priv_disassembly_begin(ctx);
+#ifndef UBJW_DISASSEMBLY_MODE
 	uint8_t buf[4];
 	_to_bigendian32(buf, *(uint32_t*)&out);
 	priv_ubjw_context_write(ctx, buf, 4);
+#else
+	priv_disassembly_print(ctx, "%ld", out);
+#endif
+	priv_disassembly_end(ctx);
 }
 void ubjw_write_int32(ubjw_context_t* ctx, int32_t out)
 {
@@ -266,9 +348,15 @@ void ubjw_write_int32(ubjw_context_t* ctx, int32_t out)
 }
 static inline void priv_ubjw_write_raw_int64(ubjw_context_t* ctx, int64_t out)
 {
+	priv_disassembly_begin(ctx);
+#ifndef UBJW_DISASSEMBLY_MODE
 	uint8_t buf[8];
 	_to_bigendian64(buf, *(uint64_t*)&out);
 	priv_ubjw_context_write(ctx, buf, 8);
+#else
+	priv_disassembly_print(ctx, "%lld", out);
+#endif
+	priv_disassembly_end(ctx);
 }
 void ubjw_write_int64(ubjw_context_t* ctx, int64_t out)
 {
@@ -330,10 +418,17 @@ void ubjw_write_integer(ubjw_context_t* ctx, int64_t out)
 
 static inline void priv_ubjw_write_raw_float32(ubjw_context_t* ctx, float out)
 {
+	priv_disassembly_begin(ctx);
+#ifndef UBJW_DISASSEMBLY_MODE
 	uint32_t fout = *(uint32_t*)&out;
 	uint8_t outbuf[4];
-	_to_bigendian32(outbuf,fout);
+	_to_bigendian32(outbuf, fout);
 	priv_ubjw_context_write(ctx, outbuf, 4);
+#else
+	priv_disassembly_print(ctx, "%g", out);
+#endif
+	priv_disassembly_end(ctx);
+
 }
 void ubjw_write_float32(ubjw_context_t* ctx, float out)
 {
@@ -342,10 +437,16 @@ void ubjw_write_float32(ubjw_context_t* ctx, float out)
 }
 static inline void priv_ubjw_write_raw_float64(ubjw_context_t* ctx, double out)
 {
+	priv_disassembly_begin(ctx);
+#ifndef UBJW_DISASSEMBLY_MODE
 	uint64_t fout = *(uint64_t*)&out;
 	uint8_t outbuf[8];
 	_to_bigendian64(outbuf, fout);
 	priv_ubjw_context_write(ctx, outbuf, 8);
+#else
+	priv_disassembly_print(ctx, "%g", out);
+#endif
+	priv_disassembly_end(ctx);
 }
 void ubjw_write_float64(ubjw_context_t* ctx, double out)
 {
@@ -384,13 +485,22 @@ void priv_ubjw_begin_container(struct priv_ubjw_container_t* cnt, ubjw_context_t
 		{
 			//error and return;
 		}
+		priv_disassembly_begin(ctx);
 		priv_ubjw_context_append(ctx, '$');
+		priv_disassembly_end(ctx);
+
+		priv_disassembly_begin(ctx);
 		priv_ubjw_context_append(ctx, UBJI_TYPEC_convert[typ]);
+		priv_disassembly_end(ctx);
+
 		cnt->flags |= CONTAINER_IS_TYPED;
 	}
 	if (count != 0)
 	{
+		priv_disassembly_begin(ctx);
 		priv_ubjw_context_append(ctx, '#');
+		priv_disassembly_end(ctx);
+
 		ctx->ignore_container_flags = 1;
 		ubjw_write_integer(ctx, (int64_t)count);
 		ctx->ignore_container_flags = 0;
@@ -422,6 +532,7 @@ void ubjw_write_key(ubjw_context_t* ctx, const char* key)
 {
 	if (ctx->head->flags & CONTAINER_EXPECTS_KEY && ctx->head->flags & CONTAINER_IS_UBJ_OBJECT)
 	{
+		priv_disassembly_indent(ctx);
 		priv_ubjw_write_raw_string(ctx, key);
 		ctx->head->flags ^= CONTAINER_EXPECTS_KEY; //turn off container 
 	}
@@ -437,6 +548,7 @@ void ubjw_end(ubjw_context_t* ctx)
 	{
 		//error expected value
 	}
+	priv_disassembly_indent(ctx);
 	priv_ubjw_context_finish_container(ctx, &ch);
 }
 
@@ -465,7 +577,7 @@ void ubjw_write_buffer(ubjw_context_t* ctx, const uint8_t* data, UBJ_TYPE type, 
 	int typesz = UBJI_TYPE_size[type];
 	if (typesz < 0)
 	{
-		//error cannot read from a buffer of this type.
+		//error cannot write an STC buffer of this type.
 	}
 	ubjw_begin_array(ctx, type, count);
 	if (type == UBJ_STRING || type == UBJ_HIGH_PRECISION)
@@ -477,6 +589,7 @@ void ubjw_write_buffer(ubjw_context_t* ctx, const uint8_t* data, UBJ_TYPE type, 
 			priv_ubjw_write_raw_string(ctx, databufs[i]);
 		}
 	}
+#ifndef UBJW_DISASSEMBLY_MODE
 	else if (typesz == 1 || _is_bigendian())
 	{
 		size_t n = typesz*count;
@@ -486,5 +599,16 @@ void ubjw_write_buffer(ubjw_context_t* ctx, const uint8_t* data, UBJ_TYPE type, 
 	{
 		priv_ubjw_write_byteswap(ctx, data,typesz,count);
 	}
+#else
+	else
+	{
+		size_t i;
+		for (i = 0; i < count; i++)
+		{
+			ubjr_dynamic_t dyn = priv_ubjr_pointer_to_dynamic(type, data + i*typesz);
+			ubjrw_write_dynamic(ctx, dyn, 0);
+		}
+	}
+#endif
 	ubjw_end(ctx);
 }

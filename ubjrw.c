@@ -121,7 +121,10 @@ void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj,uint8_t optimi
 		ubjw_write_float64(ctx, dobj.real);
 		return;
 	case UBJ_ARRAY:
-		if (dobj.container_array.type != UBJ_MIXED && dobj.container_array.type != UBJ_OBJECT && dobj.container_array.type != UBJ_ARRAY)
+		if ((dobj.container_array.originally_sized || optimize) //if we optimize an unsized array to a sized one or the original is sized
+			&& dobj.container_array.type != UBJ_MIXED 
+			&& dobj.container_array.type != UBJ_OBJECT 
+			&& dobj.container_array.type != UBJ_ARRAY)
 		{
 			ubjw_write_buffer(ctx, dobj.container_array.values, dobj.container_array.type, dobj.container_array.size);
 			return;
@@ -132,7 +135,7 @@ void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj,uint8_t optimi
 			csize = dobj.container_array.size;
 			cvalues = dobj.container_array.values;
 			otyp = optimize ? optimize_type(ctyp,(ubjr_dynamic_t*)cvalues,csize) : ctyp;
-			ubjw_begin_array(ctx, otyp, csize);
+			ubjw_begin_array(ctx, otyp, (dobj.container_array.originally_sized || optimize) ? csize : 0);
 			break;
 		}
 	case UBJ_OBJECT:
@@ -141,7 +144,7 @@ void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj,uint8_t optimi
 			csize = dobj.container_object.size;
 			cvalues = dobj.container_object.values;
 			otyp = optimize ? optimize_type(ctyp, (ubjr_dynamic_t*)cvalues, csize) : ctyp;
-			ubjw_begin_object(ctx, otyp, csize);
+			ubjw_begin_object(ctx, otyp, (dobj.container_object.originally_sized || optimize) ? csize : 0);
 			break;
 		}
 	};
@@ -157,7 +160,7 @@ void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj,uint8_t optimi
 				ubjw_write_key(ctx, dobj.container_object.keys[i]);
 			}
 			scratch = priv_ubjr_pointer_to_dynamic(ctyp, cvalues + ls*i);
-			scratch.type = otyp;
+			scratch.type = (otyp == UBJ_MIXED ? scratch.type : otyp);
 			ubjrw_write_dynamic(ctx, scratch,optimize);
 		}
 		ubjw_end(ctx);

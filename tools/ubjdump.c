@@ -25,8 +25,16 @@ int main(int argc,char** argv)
 		print_help();
 		return 0;
 	}
-	ubjr_context_t* ubctx=ubjr_open_file(fp);
-	ubjr_dynamic_t dyn=ubjr_read_dynamic(ubctx);
-	
+	ubjr_context_t* rctx=ubjr_open_file(fp);
+//	const char testdump[] = "[i\x33U\xFFI\x33\x33l\x33\x33\x33\x33L\x33\x33\x33\x33\x33\x33\x33\x33]";
+//	ubjr_context_t* rctx = ubjr_open_memory(testdump, testdump + strlen(testdump));
+
+	ubjr_dynamic_t dyn=ubjr_read_dynamic(rctx);
+
+	ubjw_context_t* wctx = ubjw_open_file(stdout);
+	ubjrw_write_dynamic(wctx, dyn,0);
+
+	ubjr_close_context(rctx);
+	ubjw_close_context(wctx);
 	return 0;
 }

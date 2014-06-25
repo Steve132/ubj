@@ -176,15 +176,15 @@ static inline uint8_t priv_ubjr_read_1b(ubjr_context_t* ctx)
 }
 static inline uint16_t priv_ubjr_read_2b(ubjr_context_t* ctx)
 {
-	return (uint16_t)priv_ubjr_read_1b(ctx) << 8 | priv_ubjr_read_1b(ctx);
+	return (uint16_t)priv_ubjr_read_1b(ctx) << 8 | (uint16_t)priv_ubjr_read_1b(ctx);
 }
 static inline uint32_t priv_ubjr_read_4b(ubjr_context_t* ctx)
 {
-	return (uint32_t)priv_ubjr_read_2b(ctx) << 16 | priv_ubjr_read_2b(ctx);
+	return (uint32_t)priv_ubjr_read_2b(ctx) << 16 | (uint32_t)priv_ubjr_read_2b(ctx);
 }
-static inline uint32_t priv_ubjr_read_8b(ubjr_context_t* ctx)
+static inline uint64_t priv_ubjr_read_8b(ubjr_context_t* ctx)
 {
-	return (uint64_t)priv_ubjr_read_4b(ctx) << 32ULL | priv_ubjr_read_4b(ctx);
+	return (uint64_t)priv_ubjr_read_4b(ctx) << 32 | (uint64_t)priv_ubjr_read_4b(ctx);
 }
 
 static inline int64_t priv_ubjw_read_integer(ubjr_context_t* ctx)
@@ -194,6 +194,8 @@ static inline int64_t priv_ubjw_read_integer(ubjr_context_t* ctx)
 		return d.integer;
 	return 0;//error
 }
+
+static inline ubjr_object_t priv_ubjr_read_raw_object(ubjr_context_t* ctx);
 static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx);
 static inline void priv_ubjr_read_to_ptr(ubjr_context_t* ctx, uint8_t* dst, UBJ_TYPE typ)
 {
@@ -249,7 +251,7 @@ static inline void priv_ubjr_read_to_ptr(ubjr_context_t* ctx, uint8_t* dst, UBJ_
 	}
 	case UBJ_OBJECT:
 	{
-		*(ubjr_array_t*)dst = priv_ubjr_read_raw_array(ctx);
+		*(ubjr_object_t*)dst = priv_ubjr_read_raw_object(ctx);
 		break;
 	}
 	};
@@ -355,6 +357,7 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 	size_t ls = UBJR_TYPE_localsize[myarray.type];
 	if (myarray.size == 0)
 	{
+		myarray.originally_sized = 0;
 		size_t arrpot = 0;
 		myarray.values=malloc(1*ls+1); //the +1 is for memory for the 0-size elements
 		for (myarray.size = 0; priv_ubjr_context_peek(ctx) != ']'; myarray.size++)
@@ -369,6 +372,7 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 	}
 	else
 	{
+		myarray.originally_sized = 1;
 		size_t i;
 		myarray.values = malloc(ls*myarray.size+1);
 		size_t sz = UBJI_TYPE_size[myarray.type];
@@ -403,6 +407,7 @@ static inline ubjr_object_t priv_ubjr_read_raw_object(ubjr_context_t* ctx)
 	size_t ls = UBJR_TYPE_localsize[myobject.type];
 	if (myobject.size == 0)
 	{
+		myobject.originally_sized = 0;
 		size_t arrpot = 0;
 		myobject.values = malloc(1 * ls + 1); //the +1 is for memory for the 0-size elements
 		myobject.keys = malloc(1 * sizeof(ubjr_string_t));
@@ -421,6 +426,7 @@ static inline ubjr_object_t priv_ubjr_read_raw_object(ubjr_context_t* ctx)
 	else
 	{
 		size_t i;
+		myobject.originally_sized = 1;
 		myobject.values = malloc(ls*myobject.size + 1);
 		myobject.keys = malloc(myobject.size * sizeof(ubjr_string_t));
 
