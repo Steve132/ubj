@@ -268,6 +268,13 @@ void ubjw_write_char(ubjw_context_t* ctx, char out)
 #ifdef UBJW_DISASSEMBLY_MODE
 #include <stdarg.h>  
 #define DISASSEMBLY_PRINT_BUFFER_SIZE 1024
+#ifndef min
+static inline size_t min(size_t x,size_t y)
+{
+	return x < y ? x : y;
+}
+#endif
+
 static inline priv_disassembly_print(ubjw_context_t* ctx, const char* format,...)
 {
 	char buffer[DISASSEMBLY_PRINT_BUFFER_SIZE];
@@ -552,12 +559,7 @@ void ubjw_end(ubjw_context_t* ctx)
 	priv_ubjw_context_finish_container(ctx, &ch);
 }
 
-#ifndef min
-static inline size_t min(size_t x,size_t y)
-{
-	return x < y ? x : y;
-}
-#endif
+
 static inline void priv_ubjw_write_byteswap(ubjw_context_t* ctx, const uint8_t* data, int sz, size_t count)
 {
 	uint8_t buf[BUFFER_OUT_SIZE];
