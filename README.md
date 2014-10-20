@@ -3,7 +3,7 @@ ubj
 
 UBJSON C/C++ libraries
 
-This library implements draft 10 of the UBJSON specification in ANSI C.
+This library implements the current draft of the UBJSON specification in ANSI C.
 
 There are three components, each of which may be compiled and used seperately from each-other.
 
