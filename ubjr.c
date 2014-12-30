@@ -339,10 +339,6 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 			uint8_t dselect;
 			priv_ubjr_context_getc(ctx);//skip over the '@' marker
 			myarray.num_dims = priv_ubjr_context_getc(ctx);//since max is 8, no type indicator needed...always a int7 type
-			if (myarray.num_dims > 8)
-			{
-				//todo: error
-			}
 			myarray.dims = malloc(sizeof(size_t)*myarray.num_dims);
 			myarray.size = 1;
 			for (dselect = 0; dselect < myarray.num_dims; dselect++)
