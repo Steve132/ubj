@@ -265,15 +265,16 @@ void ubjw_write_char(ubjw_context_t* ctx, char out)
 	priv_ubjw_write_raw_char(ctx, out);
 }
 
-#ifdef UBJW_DISASSEMBLY_MODE
-#include <stdarg.h>  
-#define DISASSEMBLY_PRINT_BUFFER_SIZE 1024
 #ifndef min
 static inline size_t min(size_t x,size_t y)
 {
 	return x < y ? x : y;
 }
 #endif
+
+#ifdef UBJW_DISASSEMBLY_MODE
+#include <stdarg.h>  
+#define DISASSEMBLY_PRINT_BUFFER_SIZE 1024
 
 static inline priv_disassembly_print(ubjw_context_t* ctx, const char* format,...)
 {
