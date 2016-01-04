@@ -365,6 +365,7 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 			}
 			priv_ubjr_read_to_ptr(ctx,(uint8_t*)myarray.values + ls*myarray.size,myarray.type);
 		}
+		priv_ubjr_context_getc(ctx); // read the closing ']'
 	}
 	else
 	{
@@ -418,6 +419,7 @@ static inline ubjr_object_t priv_ubjr_read_raw_object(ubjr_context_t* ctx)
 			priv_ubjr_read_to_ptr(ctx, (uint8_t*)(myobject.keys + myobject.size), UBJ_STRING);
 			priv_ubjr_read_to_ptr(ctx, (uint8_t*)myobject.values + ls*myobject.size, myobject.type);
 		}
+		priv_ubjr_context_getc(ctx); // read the closing '}'
 	}
 	else
 	{
