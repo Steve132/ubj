@@ -208,10 +208,6 @@ static inline void priv_ubjw_tag_public(ubjw_context_t* ctx, UBJ_TYPE tid)
 		{
 			//error, only array and object can be first written
 		}*/
-		if ((ch->flags & CONTAINER_IS_TYPED) && ch->type == tid)
-		{
-			return;
-		}
 
 		if (ch->flags & CONTAINER_IS_UBJ_OBJECT)
 		{
@@ -230,6 +226,11 @@ static inline void priv_ubjw_tag_public(ubjw_context_t* ctx, UBJ_TYPE tid)
 		if (ch->flags & CONTAINER_IS_SIZED)
 		{
 			ch->elements_remaining--; //todo: error if elements remaining is 0;
+		}
+
+		if ((ch->flags & CONTAINER_IS_TYPED) && ch->type == tid)
+		{
+			return;
 		}
 	}
 	priv_disassembly_begin(ctx);

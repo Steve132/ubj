@@ -317,6 +317,7 @@ static inline void priv_read_container_params(ubjr_context_t* ctx, UBJ_TYPE* typ
 
 	if (nextchar == '#')
 	{
+		priv_ubjr_context_getc(ctx);
 		*sizeout = priv_ubjw_read_integer(ctx);
 	}
 	else
@@ -374,7 +375,7 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 		myarray.values = malloc(ls*myarray.size+1);
 		size_t sz = UBJI_TYPE_size[myarray.type];
 
-		if (sz >= 0 && myarray.type != UBJ_STRING && myarray.type != UBJ_HIGH_PRECISION && myarray.type != UBJ_CHAR) //constant size,fastread
+		if (sz >= 0 && myarray.type != UBJ_STRING && myarray.type != UBJ_HIGH_PRECISION && myarray.type != UBJ_CHAR && myarray.type != UBJ_MIXED) //constant size,fastread
 		{
 			priv_ubjr_context_read(ctx, myarray.values, sz*myarray.size);
 			buf_endian_swap(myarray.values, sz, myarray.size); //do nothing for 0-sized buffers
@@ -430,7 +431,7 @@ static inline ubjr_object_t priv_ubjr_read_raw_object(ubjr_context_t* ctx)
 
 		for (i = 0; i < myobject.size; i++)
 		{
-			priv_ubjr_read_to_ptr(ctx, (uint8_t*)(myobject.keys + myobject.size), UBJ_STRING);
+			priv_ubjr_read_to_ptr(ctx, (uint8_t*)(myobject.keys + i), UBJ_STRING);
 			priv_ubjr_read_to_ptr(ctx, (uint8_t*)myobject.values + ls*i, myobject.type);
 		}
 	}
