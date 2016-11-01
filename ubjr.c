@@ -301,7 +301,7 @@ ubjr_dynamic_t ubjr_read_dynamic(ubjr_context_t* ctx)
 	return priv_ubjr_pointer_to_dynamic(newtyp, &scratch);
 }
 
-static inline void priv_read_container_params(ubjr_context_t* ctx, UBJ_TYPE* typout, size_t* sizeout, int* sizefound)
+static inline void priv_read_container_params(ubjr_context_t* ctx, UBJ_TYPE* typout, size_t* sizeout)
 {
 	int nextchar = priv_ubjr_context_peek(ctx);
 	if (nextchar == '$')
@@ -319,12 +319,10 @@ static inline void priv_read_container_params(ubjr_context_t* ctx, UBJ_TYPE* typ
 	{
 		priv_ubjr_context_getc(ctx);
 		*sizeout = priv_ubjw_read_integer(ctx);
-		*sizefound = 1;
 	}
 	else
 	{
 		*sizeout = 0;
-		*sizefound = 0;
 	}
 }
 //TODO: This can be reused for object
@@ -332,11 +330,10 @@ static inline void priv_read_container_params(ubjr_context_t* ctx, UBJ_TYPE* typ
 static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 {
 	ubjr_array_t myarray;
-	int sizefound = 0;
-	priv_read_container_params(ctx,&myarray.type,&myarray.size, &sizefound);
+	priv_read_container_params(ctx,&myarray.type,&myarray.size);
 	myarray.num_dims = 1;
 	myarray.dims = NULL;
-	if (myarray.type != UBJ_MIXED && sizefound == 0) //params detected this is a typed array but no size was detected..possibly an N-D array?
+	if (myarray.type != UBJ_MIXED && myarray.size==0) //params detected this is a typed array but no size was detected..possibly an N-D array?
 	{
 		if (priv_ubjr_context_peek(ctx) == '@')
 		{
@@ -355,7 +352,7 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 	}
 
 	size_t ls = UBJR_TYPE_localsize[myarray.type];
-	if (sizefound == 0)
+	if (myarray.size == 0)
 	{
 		myarray.originally_sized = 0;
 		size_t arrpot = 0;
@@ -376,7 +373,7 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 		myarray.originally_sized = 1;
 		size_t i;
 		myarray.values = malloc(ls*myarray.size+1);
-		int sz = UBJI_TYPE_size[myarray.type]; // returns negative value for unknown size
+		size_t sz = UBJI_TYPE_size[myarray.type];
 
 		if (sz >= 0 && myarray.type != UBJ_STRING && myarray.type != UBJ_HIGH_PRECISION && myarray.type != UBJ_CHAR && myarray.type != UBJ_MIXED) //constant size,fastread
 		{
@@ -402,12 +399,11 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 static inline ubjr_object_t priv_ubjr_read_raw_object(ubjr_context_t* ctx)
 {
 	ubjr_object_t myobject;
-	int sizefound = 0;
 	myobject.metatable = NULL;
-	priv_read_container_params(ctx, &myobject.type, &myobject.size, &sizefound);
+	priv_read_container_params(ctx, &myobject.type, &myobject.size);
 
 	size_t ls = UBJR_TYPE_localsize[myobject.type];
-	if (sizefound == 0)
+	if (myobject.size == 0)
 	{
 		myobject.originally_sized = 0;
 		size_t arrpot = 0;
