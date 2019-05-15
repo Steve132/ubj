@@ -158,7 +158,7 @@ static inline void priv_ubjw_context_finish_container(ubjw_context_t* ctx, struc
 	}
 }
 
-static inline priv_ubjw_container_stack_push(ubjw_context_t* ctx, const struct priv_ubjw_container_t* cnt)
+static inline void priv_ubjw_container_stack_push(ubjw_context_t* ctx, const struct priv_ubjw_container_t* cnt)
 {
 	size_t height = ctx->head-ctx->container_stack+1;
 	if(height < CONTAINER_STACK_MAX)
@@ -277,7 +277,7 @@ static inline size_t min(size_t x,size_t y)
 #include <stdarg.h>  
 #define DISASSEMBLY_PRINT_BUFFER_SIZE 1024
 
-static inline priv_disassembly_print(ubjw_context_t* ctx, const char* format,...)
+static inline void priv_disassembly_print(ubjw_context_t* ctx, const char* format,...)
 {
 	char buffer[DISASSEMBLY_PRINT_BUFFER_SIZE];
 	va_list args; 
@@ -482,15 +482,15 @@ void ubjw_write_bool(ubjw_context_t* ctx, uint8_t out)
 	priv_ubjw_tag_public(ctx,(out ? UBJ_BOOL_TRUE : UBJ_BOOL_FALSE));
 }
 
-void priv_ubjw_begin_container(struct priv_ubjw_container_t* cnt, ubjw_context_t* ctx, UBJ_TYPE typ, size_t count)
+void priv_ubjw_begin_container(struct priv_ubjw_container_t* cnt, ubjw_context_t* ctx, UBJ_TYPE typ, const size_t *count, int ndims)
 {
 	cnt->flags=0;
-	cnt->elements_remaining = count;
+	cnt->elements_remaining = *count;
 	cnt->type = typ;
 
 	if (typ != UBJ_MIXED)
 	{
-		if (count == 0)
+		if (*count == 0)
 		{
 			//error and return;
 		}
@@ -504,36 +504,56 @@ void priv_ubjw_begin_container(struct priv_ubjw_container_t* cnt, ubjw_context_t
 
 		cnt->flags |= CONTAINER_IS_TYPED;
 	}
-	if (count != 0)
+	if (*count != 0)
 	{
 		priv_disassembly_begin(ctx);
 		priv_ubjw_context_append(ctx, '#');
 		priv_disassembly_end(ctx);
 
 		ctx->ignore_container_flags = 1;
-		ubjw_write_integer(ctx, (int64_t)count);
+		if(ndims==1)
+		    ubjw_write_integer(ctx, (int64_t)(*count));
+		else{
+		    int i;
+		    priv_disassembly_begin(ctx);
+		    priv_ubjw_context_append(ctx, '[');
+		    priv_disassembly_end(ctx);
+
+		    for(i=0;i<ndims;i++)
+		   	ubjw_write_integer(ctx, (int64_t)(count[i]));
+		    priv_disassembly_begin(ctx);
+		    priv_ubjw_context_append(ctx, ']');
+		    priv_disassembly_end(ctx);
+		}
 		ctx->ignore_container_flags = 0;
 		
 		cnt->flags |= CONTAINER_IS_SIZED;
-		cnt->elements_remaining = count;
+		cnt->elements_remaining = *count;
 	}
 }
 void ubjw_begin_array(ubjw_context_t* ctx, UBJ_TYPE type, size_t count)
 {
 	priv_ubjw_tag_public(ctx, UBJ_ARRAY); //todo: should this happen before any erro potential?
 	struct priv_ubjw_container_t ch;
-	priv_ubjw_begin_container(&ch, ctx, type, count);
+	priv_ubjw_begin_container(&ch, ctx, type, &count, 1);
 	ch.flags |= CONTAINER_IS_UBJ_ARRAY;
 	priv_ubjw_container_stack_push(ctx, &ch);
 }
-void ubjw_begin_ndarray(ubjw_context_t* dst, UBJ_TYPE type, const size_t* dims, uint8_t ndims);
+void ubjw_begin_ndarray(ubjw_context_t* ctx, UBJ_TYPE type, const size_t* dims, uint8_t ndims)
+{
+	priv_ubjw_tag_public(ctx, UBJ_ARRAY); //todo: should this happen before any erro potential?
+	struct priv_ubjw_container_t ch;
+	priv_ubjw_begin_container(&ch, ctx, type, dims, ndims);
+	ch.flags |= CONTAINER_IS_UBJ_ARRAY;
+	priv_ubjw_container_stack_push(ctx, &ch);
+}
 void ubjw_write_ndbuffer(ubjw_context_t* dst, const uint8_t* data, UBJ_TYPE type, const size_t* dims, uint8_t ndims);
 
 void ubjw_begin_object(ubjw_context_t* ctx, UBJ_TYPE type, size_t count)
 {
 	priv_ubjw_tag_public(ctx, UBJ_OBJECT);
 	struct priv_ubjw_container_t ch;
-	priv_ubjw_begin_container(&ch, ctx, type, count);
+	priv_ubjw_begin_container(&ch, ctx, type, &count, 1);
 	ch.flags |= CONTAINER_EXPECTS_KEY | CONTAINER_IS_UBJ_OBJECT;
 	priv_ubjw_container_stack_push(ctx, &ch);
 }

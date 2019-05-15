@@ -124,7 +124,7 @@ void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj,uint8_t optimi
 		if ((dobj.container_array.originally_sized || optimize) //if we optimize an unsized array to a sized one or the original is sized
 			&& dobj.container_array.type != UBJ_MIXED 
 			&& dobj.container_array.type != UBJ_OBJECT 
-			&& dobj.container_array.type != UBJ_ARRAY)
+			&& dobj.container_array.type != UBJ_ARRAY && dobj.container_array.num_dims<=1)
 		{
 			ubjw_write_buffer(ctx, dobj.container_array.values, dobj.container_array.type, dobj.container_array.size);
 			return;
@@ -135,7 +135,10 @@ void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj,uint8_t optimi
 			csize = dobj.container_array.size;
 			cvalues = dobj.container_array.values;
 			otyp = optimize ? optimize_type(ctyp,(ubjr_dynamic_t*)cvalues,csize) : ctyp;
-			ubjw_begin_array(ctx, otyp, (dobj.container_array.originally_sized || optimize) ? csize : 0);
+			if(dobj.container_array.num_dims<=1)
+			    ubjw_begin_array(ctx, otyp, (dobj.container_array.originally_sized || optimize) ? csize : 0);
+			else
+			    ubjw_begin_ndarray(ctx, otyp, dobj.container_array.dims, dobj.container_array.num_dims);
 			break;
 		}
 	case UBJ_OBJECT:
