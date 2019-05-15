@@ -340,10 +340,11 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 	myarray.dims = NULL;
 	if (myarray.type != UBJ_MIXED && myarray.size==0) //params detected this is a typed array but no size was detected..possibly an N-D array?
 	{
-	        int nextchar=priv_ubjr_context_getc(ctx);
+	        int nextchar=priv_ubjr_context_peek(ctx);
 		if (nextchar == '@')
 		{
 			uint8_t dselect;
+			priv_ubjr_context_getc(ctx);//skip over the '@' marker
 			myarray.num_dims = priv_ubjr_context_getc(ctx);//since max is 8, no type indicator needed...always a int7 type
 			myarray.dims = malloc(sizeof(size_t)*myarray.num_dims);
 			myarray.size = 1;
@@ -356,6 +357,7 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 		}else if(nextchar == '['){
 			uint8_t dselect;
 			ubjr_array_t dims;
+			priv_ubjr_context_getc(ctx);//skip over the '[' marker
 			dims = priv_ubjr_read_raw_array(ctx); // recursive call
 			myarray.num_dims = dims.size;
 			myarray.size = 1;
