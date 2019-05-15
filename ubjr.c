@@ -458,7 +458,7 @@ static inline ubjr_object_t priv_ubjr_read_raw_object(ubjr_context_t* ctx)
 	return myobject;
 }
 static inline void priv_ubjr_cleanup_pointer(UBJ_TYPE typ,void* value);
-static inline priv_ubjr_cleanup_container(UBJ_TYPE type,size_t size,void* values)
+static inline void priv_ubjr_cleanup_container(UBJ_TYPE type,size_t size,void* values)
 {
 	if(type == UBJ_MIXED || type == UBJ_ARRAY || type == UBJ_OBJECT || type == UBJ_STRING)
 	{
