@@ -317,8 +317,13 @@ static inline void priv_read_container_params(ubjr_context_t* ctx, UBJ_TYPE* typ
 
 	if (nextchar == '#')
 	{
+	        int nextchar=0;
 		priv_ubjr_context_getc(ctx);
-		*sizeout = priv_ubjw_read_integer(ctx);
+		nextchar=priv_ubjr_context_peek(ctx);
+		if(nextchar!='[' && nextchar!='@')
+		    *sizeout = priv_ubjw_read_integer(ctx);
+		else
+		    *sizeout = 0;
 	}
 	else
 	{
@@ -335,10 +340,10 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 	myarray.dims = NULL;
 	if (myarray.type != UBJ_MIXED && myarray.size==0) //params detected this is a typed array but no size was detected..possibly an N-D array?
 	{
-		if (priv_ubjr_context_peek(ctx) == '@')
+	        int nextchar=priv_ubjr_context_getc(ctx);
+		if (nextchar == '@')
 		{
 			uint8_t dselect;
-			priv_ubjr_context_getc(ctx);//skip over the '@' marker
 			myarray.num_dims = priv_ubjr_context_getc(ctx);//since max is 8, no type indicator needed...always a int7 type
 			myarray.dims = malloc(sizeof(size_t)*myarray.num_dims);
 			myarray.size = 1;
@@ -348,6 +353,21 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 				myarray.dims[dselect] = d;
 				myarray.size *= d;
 			}
+		}else if(nextchar == '['){
+			uint8_t dselect;
+			ubjr_array_t dims;
+			dims = priv_ubjr_read_raw_array(ctx); // recursive call
+			myarray.num_dims = dims.size;
+			myarray.size = 1;
+			myarray.dims = malloc(sizeof(size_t)*myarray.num_dims);
+			for (dselect = 0; dselect < myarray.num_dims; dselect++)
+			{
+				size_t d=0; 
+				memcpy(&d, (uint8_t*)dims.values+dselect*ubjr_local_type_size(dims.type), ubjr_local_type_size(dims.type));
+				myarray.dims[dselect] = d;
+				myarray.size *= d;
+			}
+			ubjr_cleanup_array(&dims);
 		}
 	}
 
