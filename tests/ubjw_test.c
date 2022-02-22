@@ -163,7 +163,7 @@ void run_test(const char* name, void(*tp)(ubjw_context_t* ctx), const char* expe
 	ubjr_context_t* rctx = ubjr_open_memory(expected,expected+sz);
 	ubjw_context_t* wctx = ubjw_open_memory(memory,memory+2*sz);
 	ubjr_dynamic_t filestruct=ubjr_read_dynamic(rctx);
-	ubjrw_write_dynamic(ctx,filestruct,0);
+	ubjrw_write_dynamic(wctx,filestruct,0);
 
 	printf("%s_readwrite :",name);
 	comparemem(memory,expected,sz,n);
@@ -182,6 +182,7 @@ void run_test(const char* name, void(*tp)(ubjw_context_t* ctx), const char* expe
 int main(int argc, char** argv)
 {
 	run_test("mixed_dynamic_array", test_mixed_dynamic_array, expected_mixed_dynamic_array);
+/*
 	run_test("mixed_static_array", test_mixed_static_array, expected_mixed_static_array);
 	run_test("typed_static_array", test_typed_static_array, expected_typed_static_array);
 	run_test("buffer_typed_static_array",test_buffer_typed_static_array,expected_buffer_typed_static_array);
@@ -191,6 +192,6 @@ int main(int argc, char** argv)
 	run_test("typed_static_object", test_typed_static_object, expected_typed_static_object);
 	
 	run_test("integer_types",test_integer_types,expected_integer_types);
-
+*/
 	return 0;
 }
