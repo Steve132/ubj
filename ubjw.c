@@ -37,6 +37,7 @@ struct ubjw_context_t_s
 	uint16_t last_error_code;
 
 	size_t total_written;
+	int isbjdata;
 };
 
 
@@ -64,6 +65,7 @@ ubjw_context_t* ubjw_open_callback(void* userdata,
 	ctx->last_error_code = 0;
 
 	ctx->total_written = 0;
+	ctx->isbjdata = 1;
 	return ctx;
 }
 ubjw_context_t* ubjw_open_file(FILE* fd)
@@ -158,7 +160,7 @@ static inline void priv_ubjw_context_finish_container(ubjw_context_t* ctx, struc
 	}
 }
 
-static inline priv_ubjw_container_stack_push(ubjw_context_t* ctx, const struct priv_ubjw_container_t* cnt)
+static inline void priv_ubjw_container_stack_push(ubjw_context_t* ctx, const struct priv_ubjw_container_t* cnt)
 {
 	size_t height = ctx->head-ctx->container_stack+1;
 	if(height < CONTAINER_STACK_MAX)
@@ -277,14 +279,14 @@ static inline size_t min(size_t x,size_t y)
 #include <stdarg.h>  
 #define DISASSEMBLY_PRINT_BUFFER_SIZE 1024
 
-static inline priv_disassembly_print(ubjw_context_t* ctx, const char* format,...)
+static inline void priv_disassembly_print(ubjw_context_t* ctx, const char* format,...)
 {
 	char buffer[DISASSEMBLY_PRINT_BUFFER_SIZE];
 	va_list args; 
 	va_start(args, format);
 	int n=vsnprintf(buffer, DISASSEMBLY_PRINT_BUFFER_SIZE, format, args);
 	n = min(n, DISASSEMBLY_PRINT_BUFFER_SIZE);
-	priv_ubjw_context_write(ctx, buffer,n);
+	priv_ubjw_context_write(ctx, (const uint8_t*)buffer,n);
 	va_end(args);
 }
 #endif
@@ -326,7 +328,10 @@ static inline void priv_ubjw_write_raw_int16(ubjw_context_t* ctx, int16_t out)
 	priv_disassembly_begin(ctx);
 #ifndef UBJW_DISASSEMBLY_MODE
 	uint8_t buf[2];
-	_to_bigendian16(buf, *(uint16_t*)&out);
+	if(!ctx->isbjdata)
+                _to_bigendian16(buf, *(uint16_t*)&out);
+        else
+                memcpy(buf, &out, sizeof(out));
 	priv_ubjw_context_write(ctx, buf, 2);
 #else
 	priv_disassembly_print(ctx, "%hd", out);
@@ -338,12 +343,25 @@ void ubjw_write_int16(ubjw_context_t* ctx, int16_t out)
 	priv_ubjw_tag_public(ctx,UBJ_INT16);
 	priv_ubjw_write_raw_int16(ctx, out);
 }
+void ubjw_write_uint16(ubjw_context_t* ctx, uint16_t out)
+{
+	priv_ubjw_tag_public(ctx,UBJ_UINT16);
+	priv_ubjw_write_raw_int16(ctx, out);
+}
+void ubjw_write_float16(ubjw_context_t* ctx, uint16_t out)
+{
+	priv_ubjw_tag_public(ctx,UBJ_FLOAT16);
+	priv_ubjw_write_raw_int16(ctx, out);
+}
 static inline void priv_ubjw_write_raw_int32(ubjw_context_t* ctx, int32_t out)
 {
 	priv_disassembly_begin(ctx);
 #ifndef UBJW_DISASSEMBLY_MODE
 	uint8_t buf[4];
-	_to_bigendian32(buf, *(uint32_t*)&out);
+	if(!ctx->isbjdata)
+                _to_bigendian32(buf, *(uint32_t*)&out);
+        else
+                memcpy(buf, &out, sizeof(out));
 	priv_ubjw_context_write(ctx, buf, 4);
 #else
 	priv_disassembly_print(ctx, "%ld", out);
@@ -355,12 +373,21 @@ void ubjw_write_int32(ubjw_context_t* ctx, int32_t out)
 	priv_ubjw_tag_public(ctx,UBJ_INT32);
 	priv_ubjw_write_raw_int32(ctx, out);
 }
+void ubjw_write_uint32(ubjw_context_t* ctx, uint32_t out)
+{
+	priv_ubjw_tag_public(ctx,UBJ_UINT32);
+	priv_ubjw_write_raw_int32(ctx, out);
+}
 static inline void priv_ubjw_write_raw_int64(ubjw_context_t* ctx, int64_t out)
 {
 	priv_disassembly_begin(ctx);
 #ifndef UBJW_DISASSEMBLY_MODE
 	uint8_t buf[8];
-	_to_bigendian64(buf, *(uint64_t*)&out);
+	if(!ctx->isbjdata)
+                _to_bigendian64(buf, *(uint64_t*)&out);
+        else
+                memcpy(buf, &out, sizeof(out));
+
 	priv_ubjw_context_write(ctx, buf, 8);
 #else
 	priv_disassembly_print(ctx, "%lld", out);
@@ -372,7 +399,11 @@ void ubjw_write_int64(ubjw_context_t* ctx, int64_t out)
 	priv_ubjw_tag_public(ctx,UBJ_INT64);
 	priv_ubjw_write_raw_int64(ctx, out);
 }
-
+void ubjw_write_uint64(ubjw_context_t* ctx, uint64_t out)
+{
+	priv_ubjw_tag_public(ctx,UBJ_UINT64);
+	priv_ubjw_write_raw_int64(ctx, out);
+}
 void ubjw_write_high_precision(ubjw_context_t* ctx, const char* hp)
 {
 	priv_ubjw_tag_public(ctx,UBJ_HIGH_PRECISION);
@@ -393,13 +424,25 @@ UBJ_TYPE ubjw_min_integer_type(int64_t in)
 	{
 		return UBJ_INT16;
 	}
+	else if (in > 0 && mc < 0x10000)
+	{
+		return UBJ_UINT16;
+	}
 	else if (mc < 0x80000000)
 	{
 		return UBJ_INT32;
 	}
-	else
+	else if (in > 0 && mc < 0xFFFFFFFFllu)
+	{
+		return UBJ_UINT32;
+	}
+	else if (mc < 0x8FFFFFFFFFFFFFFFllu)
 	{
 		return UBJ_INT64;
+	}
+	else
+	{
+		return UBJ_UINT64;
 	}
 }
 
@@ -416,11 +459,20 @@ void ubjw_write_integer(ubjw_context_t* ctx, int64_t out)
 	case UBJ_INT16:
 		ubjw_write_int16(ctx, (int16_t)out);
 		break;
+	case UBJ_UINT16:
+		ubjw_write_uint16(ctx, (uint16_t)out);
+		break;
 	case UBJ_INT32:
 		ubjw_write_int32(ctx, (int32_t)out);
 		break;
-	default:
+	case UBJ_UINT32:
+		ubjw_write_uint32(ctx, (uint32_t)out);
+		break;
+	case UBJ_INT64:
 		ubjw_write_int64(ctx, out);
+		break;
+	default:
+		ubjw_write_uint64(ctx, (uint64_t)out);
 		break;
 	};
 }
@@ -431,7 +483,10 @@ static inline void priv_ubjw_write_raw_float32(ubjw_context_t* ctx, float out)
 #ifndef UBJW_DISASSEMBLY_MODE
 	uint32_t fout = *(uint32_t*)&out;
 	uint8_t outbuf[4];
-	_to_bigendian32(outbuf, fout);
+	if(!ctx->isbjdata)
+        	_to_bigendian32(outbuf, fout);
+        else
+                memcpy(outbuf, &out, sizeof(out));
 	priv_ubjw_context_write(ctx, outbuf, 4);
 #else
 	priv_disassembly_print(ctx, "%g", out);
@@ -450,7 +505,10 @@ static inline void priv_ubjw_write_raw_float64(ubjw_context_t* ctx, double out)
 #ifndef UBJW_DISASSEMBLY_MODE
 	uint64_t fout = *(uint64_t*)&out;
 	uint8_t outbuf[8];
-	_to_bigendian64(outbuf, fout);
+	if(!ctx->isbjdata)
+                _to_bigendian64(outbuf, fout);
+        else
+                memcpy(outbuf, &out, sizeof(out));
 	priv_ubjw_context_write(ctx, outbuf, 8);
 #else
 	priv_disassembly_print(ctx, "%g", out);
@@ -482,15 +540,15 @@ void ubjw_write_bool(ubjw_context_t* ctx, uint8_t out)
 	priv_ubjw_tag_public(ctx,(out ? UBJ_BOOL_TRUE : UBJ_BOOL_FALSE));
 }
 
-void priv_ubjw_begin_container(struct priv_ubjw_container_t* cnt, ubjw_context_t* ctx, UBJ_TYPE typ, size_t count)
+void priv_ubjw_begin_container(struct priv_ubjw_container_t* cnt, ubjw_context_t* ctx, UBJ_TYPE typ, const size_t *count, int ndims)
 {
 	cnt->flags=0;
-	cnt->elements_remaining = count;
+	cnt->elements_remaining = *count;
 	cnt->type = typ;
 
 	if (typ != UBJ_MIXED)
 	{
-		if (count == 0)
+		if (*count == 0)
 		{
 			//error and return;
 		}
@@ -504,36 +562,56 @@ void priv_ubjw_begin_container(struct priv_ubjw_container_t* cnt, ubjw_context_t
 
 		cnt->flags |= CONTAINER_IS_TYPED;
 	}
-	if (count != 0)
+	if (*count != 0)
 	{
 		priv_disassembly_begin(ctx);
 		priv_ubjw_context_append(ctx, '#');
 		priv_disassembly_end(ctx);
 
 		ctx->ignore_container_flags = 1;
-		ubjw_write_integer(ctx, (int64_t)count);
+		if(ndims==1)
+		    ubjw_write_integer(ctx, (int64_t)(*count));
+		else{
+		    int i;
+		    priv_disassembly_begin(ctx);
+		    priv_ubjw_context_append(ctx, '[');
+		    priv_disassembly_end(ctx);
+
+		    for(i=0;i<ndims;i++)
+		   	ubjw_write_integer(ctx, (int64_t)(count[i]));
+		    priv_disassembly_begin(ctx);
+		    priv_ubjw_context_append(ctx, ']');
+		    priv_disassembly_end(ctx);
+		}
 		ctx->ignore_container_flags = 0;
 		
 		cnt->flags |= CONTAINER_IS_SIZED;
-		cnt->elements_remaining = count;
+		cnt->elements_remaining = *count;
 	}
 }
 void ubjw_begin_array(ubjw_context_t* ctx, UBJ_TYPE type, size_t count)
 {
 	priv_ubjw_tag_public(ctx, UBJ_ARRAY); //todo: should this happen before any erro potential?
 	struct priv_ubjw_container_t ch;
-	priv_ubjw_begin_container(&ch, ctx, type, count);
+	priv_ubjw_begin_container(&ch, ctx, type, &count, 1);
 	ch.flags |= CONTAINER_IS_UBJ_ARRAY;
 	priv_ubjw_container_stack_push(ctx, &ch);
 }
-void ubjw_begin_ndarray(ubjw_context_t* dst, UBJ_TYPE type, const size_t* dims, uint8_t ndims);
+void ubjw_begin_ndarray(ubjw_context_t* ctx, UBJ_TYPE type, const size_t* dims, uint8_t ndims)
+{
+	priv_ubjw_tag_public(ctx, UBJ_ARRAY); //todo: should this happen before any erro potential?
+	struct priv_ubjw_container_t ch;
+	priv_ubjw_begin_container(&ch, ctx, type, dims, ndims);
+	ch.flags |= CONTAINER_IS_UBJ_ARRAY;
+	priv_ubjw_container_stack_push(ctx, &ch);
+}
 void ubjw_write_ndbuffer(ubjw_context_t* dst, const uint8_t* data, UBJ_TYPE type, const size_t* dims, uint8_t ndims);
 
 void ubjw_begin_object(ubjw_context_t* ctx, UBJ_TYPE type, size_t count)
 {
 	priv_ubjw_tag_public(ctx, UBJ_OBJECT);
 	struct priv_ubjw_container_t ch;
-	priv_ubjw_begin_container(&ch, ctx, type, count);
+	priv_ubjw_begin_container(&ch, ctx, type, &count, 1);
 	ch.flags |= CONTAINER_EXPECTS_KEY | CONTAINER_IS_UBJ_OBJECT;
 	priv_ubjw_container_stack_push(ctx, &ch);
 }
@@ -572,7 +650,7 @@ static inline void priv_ubjw_write_byteswap(ubjw_context_t* ctx, const uint8_t* 
 	{
 		size_t npass = min(nbytes - i, BUFFER_OUT_SIZE);
 		memcpy(buf, data + i, npass);
-		buf_endian_swap(buf, sz, npass/sz);
+		buf_endian_swap(buf, sz, npass/sz, ctx->isbjdata);
 		priv_ubjw_context_write(ctx, buf, npass);
 	}
 }
@@ -596,7 +674,6 @@ void ubjw_write_buffer(ubjw_context_t* ctx, const uint8_t* data, UBJ_TYPE type, 
 #ifndef UBJW_DISASSEMBLY_MODE
 	else if (typesz == 1 || _is_bigendian())
 	{
-		size_t n = typesz*count;
 		priv_ubjw_context_write(ctx, data, typesz*count);
 	}
 	else if (typesz > 1) //and not big-endian

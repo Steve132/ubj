@@ -108,11 +108,23 @@ void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj,uint8_t optimi
 	case UBJ_INT16:
 		ubjw_write_int16(ctx, (int16_t)dobj.integer);
 		return;
+	case UBJ_UINT16:
+		ubjw_write_uint16(ctx, (uint16_t)dobj.integer);
+		return;
 	case UBJ_INT32:
 		ubjw_write_int32(ctx, (int32_t)dobj.integer);
 		return;
+	case UBJ_UINT32:
+		ubjw_write_uint32(ctx, (uint32_t)dobj.integer);
+		return;
 	case UBJ_INT64:
-		ubjw_write_int64(ctx, dobj.integer);
+		ubjw_write_int64(ctx, (int64_t)dobj.integer);
+		return;
+	case UBJ_UINT64:
+		ubjw_write_uint64(ctx, (uint64_t)dobj.integer);
+		return;
+	case UBJ_FLOAT16:
+		ubjw_write_float16(ctx, (uint16_t)dobj.half);
 		return;
 	case UBJ_FLOAT32:
 		ubjw_write_float32(ctx, (float)dobj.real);
@@ -124,7 +136,7 @@ void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj,uint8_t optimi
 		if ((dobj.container_array.originally_sized || optimize) //if we optimize an unsized array to a sized one or the original is sized
 			&& dobj.container_array.type != UBJ_MIXED 
 			&& dobj.container_array.type != UBJ_OBJECT 
-			&& dobj.container_array.type != UBJ_ARRAY)
+			&& dobj.container_array.type != UBJ_ARRAY && dobj.container_array.num_dims<=1)
 		{
 			ubjw_write_buffer(ctx, dobj.container_array.values, dobj.container_array.type, dobj.container_array.size);
 			return;
@@ -135,7 +147,10 @@ void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj,uint8_t optimi
 			csize = dobj.container_array.size;
 			cvalues = dobj.container_array.values;
 			otyp = optimize ? optimize_type(ctyp,(ubjr_dynamic_t*)cvalues,csize) : ctyp;
-			ubjw_begin_array(ctx, otyp, (dobj.container_array.originally_sized || optimize) ? csize : 0);
+			if(dobj.container_array.num_dims<=1)
+			    ubjw_begin_array(ctx, otyp, (dobj.container_array.originally_sized || optimize) ? csize : 0);
+			else
+			    ubjw_begin_ndarray(ctx, otyp, dobj.container_array.dims, dobj.container_array.num_dims);
 			break;
 		}
 	case UBJ_OBJECT:
@@ -147,12 +162,12 @@ void ubjrw_write_dynamic(ubjw_context_t* ctx, ubjr_dynamic_t dobj,uint8_t optimi
 			ubjw_begin_object(ctx, otyp, (dobj.container_object.originally_sized || optimize) ? csize : 0);
 			break;
 		}
+        default: {}
 	};
 	{
 		size_t i;
 		ubjr_dynamic_t scratch;
 		size_t ls = UBJR_TYPE_localsize[ctyp];
-
 		for (i = 0; i < csize; i++)
 		{
 			if (dobj.type == UBJ_OBJECT)

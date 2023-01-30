@@ -24,6 +24,7 @@ typedef struct ubjr_context_t_s
 	uint16_t last_error_code;
 
 	size_t total_read;
+        int isbjdata;
 } ubjr_context_t;
 
 ubjr_context_t* ubjr_open_callback(void* userdata,
@@ -51,12 +52,15 @@ ubjr_context_t* ubjr_open_callback(void* userdata,
 	ctx->last_error_code = 0;
 
 	ctx->total_read = 0;
+        ctx->isbjdata=1;
 	return ctx;
 }
 
 size_t ubjr_close_context(ubjr_context_t* ctx)
 {
 	size_t n = ctx->total_read;
+        if(ctx->userdata)
+            free(ctx->userdata);
 	free(ctx);
 	return n;
 }
@@ -176,21 +180,27 @@ static inline uint8_t priv_ubjr_read_1b(ubjr_context_t* ctx)
 }
 static inline uint16_t priv_ubjr_read_2b(ubjr_context_t* ctx)
 {
-	return (uint16_t)priv_ubjr_read_1b(ctx) << 8 | (uint16_t)priv_ubjr_read_1b(ctx);
+	return (!ctx->isbjdata
+            ? ((uint16_t)priv_ubjr_read_1b(ctx) << 8 | (uint16_t)priv_ubjr_read_1b(ctx))
+            : ((uint16_t)priv_ubjr_read_1b(ctx) | (uint16_t)priv_ubjr_read_1b(ctx) << 8));
 }
 static inline uint32_t priv_ubjr_read_4b(ubjr_context_t* ctx)
 {
-	return (uint32_t)priv_ubjr_read_2b(ctx) << 16 | (uint32_t)priv_ubjr_read_2b(ctx);
+	return (!ctx->isbjdata
+            ? ((uint32_t)priv_ubjr_read_2b(ctx) << 16 | (uint32_t)priv_ubjr_read_2b(ctx))
+            : ((uint32_t)priv_ubjr_read_2b(ctx) | (uint32_t)priv_ubjr_read_2b(ctx) << 16));
 }
 static inline uint64_t priv_ubjr_read_8b(ubjr_context_t* ctx)
 {
-	return (uint64_t)priv_ubjr_read_4b(ctx) << 32 | (uint64_t)priv_ubjr_read_4b(ctx);
+	return (!ctx->isbjdata
+            ? ((uint64_t)priv_ubjr_read_4b(ctx) << 32 | (uint64_t)priv_ubjr_read_4b(ctx))
+            : ((uint64_t)priv_ubjr_read_4b(ctx) | (uint64_t)priv_ubjr_read_4b(ctx) << 32));
 }
 
 static inline int64_t priv_ubjw_read_integer(ubjr_context_t* ctx)
 {
 	ubjr_dynamic_t d = ubjr_read_dynamic(ctx);
-	if (d.type >= UBJ_INT8 && d.type <= UBJ_INT64)
+	if (d.type >= UBJ_INT8 && d.type <= UBJ_UINT64)
 		return d.integer;
 	return 0;//error
 }
@@ -200,7 +210,7 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx);
 static inline void priv_ubjr_read_to_ptr(ubjr_context_t* ctx, uint8_t* dst, UBJ_TYPE typ)
 {
 	int64_t n = 1;
-	char *tstr;
+	uint8_t *tstr;
 	switch (typ)
 	{
 	case UBJ_MIXED:
@@ -218,7 +228,7 @@ static inline void priv_ubjr_read_to_ptr(ubjr_context_t* ctx, uint8_t* dst, UBJ_
 		tstr = malloc(n + 1);
 		priv_ubjr_context_read(ctx, tstr, n);
 		tstr[n] = 0;
-		*(ubjr_string_t*)dst = tstr;
+		dst = tstr;
 		break;
 	}
 	case UBJ_INT8:
@@ -228,17 +238,21 @@ static inline void priv_ubjr_read_to_ptr(ubjr_context_t* ctx, uint8_t* dst, UBJ_
 		break;
 	}
 	case UBJ_INT16:
+	case UBJ_UINT16:
+	case UBJ_FLOAT16:
 	{
 		*(uint16_t*)dst = priv_ubjr_read_2b(ctx);
 		break;
 	}
 	case UBJ_INT32:
+	case UBJ_UINT32:
 	case UBJ_FLOAT32:
 	{
 		*(uint32_t*)dst = priv_ubjr_read_4b(ctx);
 		break;
 	}
 	case UBJ_INT64:
+	case UBJ_UINT64:
 	case UBJ_FLOAT64:
 	{
 		*(uint64_t*)dst = priv_ubjr_read_8b(ctx);
@@ -254,6 +268,7 @@ static inline void priv_ubjr_read_to_ptr(ubjr_context_t* ctx, uint8_t* dst, UBJ_
 		*(ubjr_object_t*)dst = priv_ubjr_read_raw_object(ctx);
 		break;
 	}
+        default:{}
 	};
 }
 
@@ -317,8 +332,13 @@ static inline void priv_read_container_params(ubjr_context_t* ctx, UBJ_TYPE* typ
 
 	if (nextchar == '#')
 	{
+	        int nextchar=0;
 		priv_ubjr_context_getc(ctx);
-		*sizeout = priv_ubjw_read_integer(ctx);
+		nextchar=priv_ubjr_context_peek(ctx);
+		if(nextchar!='[' && nextchar!='@')
+		    *sizeout = priv_ubjw_read_integer(ctx);
+		else
+		    *sizeout = 0;
 	}
 	else
 	{
@@ -335,7 +355,8 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 	myarray.dims = NULL;
 	if (myarray.type != UBJ_MIXED && myarray.size==0) //params detected this is a typed array but no size was detected..possibly an N-D array?
 	{
-		if (priv_ubjr_context_peek(ctx) == '@')
+	        int nextchar=priv_ubjr_context_peek(ctx);
+		if (nextchar == '@')
 		{
 			uint8_t dselect;
 			priv_ubjr_context_getc(ctx);//skip over the '@' marker
@@ -348,6 +369,22 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 				myarray.dims[dselect] = d;
 				myarray.size *= d;
 			}
+		}else if(nextchar == '['){
+			uint8_t dselect;
+			ubjr_array_t dims;
+			priv_ubjr_context_getc(ctx);//skip over the '[' marker
+			dims = priv_ubjr_read_raw_array(ctx); // recursive call
+			myarray.num_dims = dims.size;
+			myarray.size = 1;
+			myarray.dims = malloc(sizeof(size_t)*myarray.num_dims);
+			for (dselect = 0; dselect < myarray.num_dims; dselect++)
+			{
+				size_t d=0; 
+				memcpy(&d, (uint8_t*)dims.values+dselect*ubjr_local_type_size(dims.type), ubjr_local_type_size(dims.type));
+				myarray.dims[dselect] = d;
+				myarray.size *= d;
+			}
+			ubjr_cleanup_array(&dims);
 		}
 	}
 
@@ -378,7 +415,7 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 		if (sz >= 0 && myarray.type != UBJ_STRING && myarray.type != UBJ_HIGH_PRECISION && myarray.type != UBJ_CHAR && myarray.type != UBJ_MIXED) //constant size,fastread
 		{
 			priv_ubjr_context_read(ctx, myarray.values, sz*myarray.size);
-			buf_endian_swap(myarray.values, sz, myarray.size); //do nothing for 0-sized buffers
+			buf_endian_swap(myarray.values, sz, myarray.size, ctx->isbjdata); //do nothing for 0-sized buffers
 		}
 		else
 		{
@@ -387,11 +424,6 @@ static inline ubjr_array_t priv_ubjr_read_raw_array(ubjr_context_t* ctx)
 				priv_ubjr_read_to_ptr(ctx, (uint8_t*)myarray.values + ls*i, myarray.type);
 			}
 		}
-	}
-	if (myarray.dims == NULL)
-	{
-		myarray.dims = malloc(sizeof(size_t));
-		myarray.dims[0] = myarray.size;
 	}
 	return myarray;
 }
@@ -438,7 +470,7 @@ static inline ubjr_object_t priv_ubjr_read_raw_object(ubjr_context_t* ctx)
 	return myobject;
 }
 static inline void priv_ubjr_cleanup_pointer(UBJ_TYPE typ,void* value);
-static inline priv_ubjr_cleanup_container(UBJ_TYPE type,size_t size,void* values)
+static inline void priv_ubjr_cleanup_container(UBJ_TYPE type,size_t size,void* values)
 {
 	if(type == UBJ_MIXED || type == UBJ_ARRAY || type == UBJ_OBJECT || type == UBJ_STRING)
 	{
@@ -462,17 +494,18 @@ static inline void priv_ubjr_cleanup_pointer(UBJ_TYPE typ,void* value)
 			ubjr_dynamic_t* dyn=(ubjr_dynamic_t*)value;
 			switch(dyn->type)
 			{
-			case UBJ_STRING:
-				priv_ubjr_cleanup_pointer(UBJ_STRING,&dyn->string);
-				break;
-			case UBJ_ARRAY:
-				priv_ubjr_cleanup_pointer(UBJ_ARRAY,&dyn->container_array);
-				break;
-			case UBJ_OBJECT:
-				priv_ubjr_cleanup_pointer(UBJ_OBJECT,&dyn->container_object);
-				break;
+                                case UBJ_STRING:
+                                        priv_ubjr_cleanup_pointer(UBJ_STRING,&dyn->string);
+                                        break;
+                                case UBJ_ARRAY:
+                                        priv_ubjr_cleanup_pointer(UBJ_ARRAY,&dyn->container_array);
+                                        break;
+                                case UBJ_OBJECT:
+                                        priv_ubjr_cleanup_pointer(UBJ_OBJECT,&dyn->container_object);
+                                        break;
+                                default:
+                                        break;
 			};
-			break;
 		}
 		case UBJ_STRING:
 		{
@@ -484,7 +517,10 @@ static inline void priv_ubjr_cleanup_pointer(UBJ_TYPE typ,void* value)
 		{
 			ubjr_array_t* arr=(ubjr_array_t*)value;
 			priv_ubjr_cleanup_container(arr->type,arr->size,arr->values);
-			free(arr->dims);
+			if(arr->dims)
+                        {
+                            free(arr->dims);
+                        }
 			break;
 		}
 		case UBJ_OBJECT:
@@ -498,6 +534,8 @@ static inline void priv_ubjr_cleanup_pointer(UBJ_TYPE typ,void* value)
 			}
 			break;
 		}
+                default:
+                        {}
 	};
 }
 
